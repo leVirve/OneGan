@@ -7,6 +7,8 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable, grad
 
+from onegan.utils import to_var, to_device
+
 
 class AdversarialLoss():
 
@@ -19,7 +21,7 @@ class AdversarialLoss():
     def __call__(self, x, real_fake):
         x = self.dnet(x)
         value = self.real_label if real_fake else self.fake_label
-        label = Variable(torch.FloatTensor(x.size()).fill_(value).cuda(), requires_grad=False)
+        label = to_var(torch.FloatTensor(x.size()).fill_(value), requires_grad=False)
         return self.loss(x, label)
 
 
@@ -30,15 +32,15 @@ class GradientPaneltyLoss():
 
     def __call__(self, target, pred):
         batch_size = target.size(0)
-        alpha = (torch.rand(batch_size, 1)
-                      .expand(batch_size, target.nelement() // batch_size)
-                      .contiguous()
-                      .view(target.size()).cuda())
+        alpha = to_device(torch.rand(batch_size, 1)
+                          .expand(batch_size, target.nelement() // batch_size)
+                          .contiguous()
+                          .view(target.size()))
         interp = Variable(alpha * target.data + (1 - alpha) * pred.data, requires_grad=True)
 
         output = self.dnet(interp)
         grads = grad(outputs=output, inputs=interp,
-                     grad_outputs=torch.ones(output.size()).cuda(),
+                     grad_outputs=to_device(torch.ones(output.size())),
                      create_graph=True, retain_graph=True)[0]
 
         return ((grads.view(batch_size, -1).norm(dim=1) - 1) ** 2).mean()
@@ -47,11 +49,7 @@ class GradientPaneltyLoss():
 class CombinedLossMixin():
 
     def add_term(self, name, criterion, weight):
-        if isinstance(criterion, nn.L1Loss) or isinstance(criterion, nn.MSELoss):
-            self.smooth_name = name
-            self.smooth_criterion = criterion
-            self.smooth_weight = weight
-        elif isinstance(criterion, AdversarialLoss):
+        if isinstance(criterion, AdversarialLoss):
             self.adv_name = name
             self.adv_criterion = criterion
             self.adv_weight = weight
@@ -59,6 +57,10 @@ class CombinedLossMixin():
             self.gp_name = name
             self.gp_criterion = criterion
             self.gp_weight = weight
+        else:
+            self.smooth_name = name
+            self.smooth_criterion = criterion
+            self.smooth_weight = weight
         return self
 
 

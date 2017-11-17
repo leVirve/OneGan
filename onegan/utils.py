@@ -9,6 +9,23 @@ from collections import defaultdict
 
 import torch
 import tensorboardX
+from torch.autograd import Variable
+
+
+cuda_available = torch.cuda.is_available()
+
+
+def to_device(x):
+    if cuda_available:
+        return x.cuda()
+    return x
+
+
+def to_var(x, **kwargs):
+    var = Variable(x, **kwargs)
+    if cuda_available:
+        return var.cuda()
+    return var
 
 
 class History():

@@ -6,7 +6,7 @@
 import tqdm
 from torch.autograd import Variable
 
-from onegan.utils import History, Logger
+from onegan.utils import History, Logger, to_var
 from onegan.extensions import ImageSummaryExtention, HistoryExtention
 
 
@@ -55,7 +55,7 @@ class OneGANEstimator(GANEstimator):
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)
         for i, (source, target) in enumerate(progress):
-            source, target = Variable(source).cuda(), Variable(target).cuda()
+            source, target = to_var(source), to_var(target)
             output = self.gnet(source)
 
             d_loss, d_terms = self.criterion.d_loss(source=source, output=output.detach(), target=target)
@@ -82,7 +82,7 @@ class OneGANEstimator(GANEstimator):
     def evaluate(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader, leave=False)
         for i, (source, target) in enumerate(progress):
-            source, target = Variable(source, volatile=True).cuda(), Variable(target, volatile=True).cuda()
+            source, target = to_var(source, volatile=True), to_var(target, volatile=True)
             output = self.gnet(source)
 
             _, d_terms = self.criterion.d_loss(source=source, output=output, target=target)

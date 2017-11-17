@@ -52,7 +52,7 @@ if __name__ == '__main__':
                      .add_term('smooth', nn.L1Loss(), weight=100)
                      .add_term('adv', ohgan.losses.AdversarialLoss(d), weight=1)
                      .add_term('gp', ohgan.losses.GradientPaneltyLoss(d), weight=0.25))
-    metric = ohgan.metrics.PsnrMixin()
+    metric = ohgan.metrics.Psnr()
 
     estimator = ohgan.estimator.OneGANEstimator(
         model=(g, d),
