@@ -4,7 +4,6 @@
 # https://opensource.org/licenses/MIT
 
 import tqdm
-from torch.autograd import Variable
 
 from onegan.utils import History, Logger, to_var
 from onegan.extensions import ImageSummaryExtention, HistoryExtention

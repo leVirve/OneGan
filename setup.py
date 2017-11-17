@@ -13,6 +13,11 @@ def version():
                 return line.replace("'", '').split()[-1]
 
 
+def pip_requirements():
+    with open('requirements.txt') as f:
+        return [line.strip() for line in f]
+
+
 setup(
     name='onegan',
     version=version(),
@@ -26,7 +31,10 @@ setup(
     zip_safe=False,
     keywords='GAN framework',
     install_requires=[
-        'tensorboardX'
+        *pip_requirements(),
+        'numpy',
+        'pillow >= 4.1.1',
+        'torch'
     ],
     classifiers=[
         'Development Status :: 3 - Alpha',

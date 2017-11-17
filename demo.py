@@ -4,7 +4,10 @@ from PIL import Image
 import torchvision.transforms as F
 
 import onegan as ohgan
+from onegan.external import pix2pix
 from onegan.data.loader import collect_images, load_image
+
+torch.backends.cudnn.benchmark = True
 
 
 class InpaintDastaset(ohgan.data.BaseDastaset):
@@ -45,8 +48,8 @@ if __name__ == '__main__':
     def make_optimizer(model):
         return torch.optim.Adam(model.parameters(), lr=0.0001, betas=(0.5, 0.999))
 
-    g = ohgan.external.pix2pix.define_G(3, 3, 64, 'unet_128', init_type='xavier').cuda()
-    d = ohgan.external.pix2pix.define_D(6 if conditional else 3, 64, 'basic', init_type='xavier').cuda()
+    g = pix2pix.define_G(3, 3, 64, 'unet_128', init_type='xavier').cuda()
+    d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', init_type='xavier').cuda()
 
     gan_criterion = (ohgan.losses.GANLoss(conditional)
                      .add_term('smooth', nn.L1Loss(), weight=100)
