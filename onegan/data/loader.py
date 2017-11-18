@@ -18,7 +18,7 @@ def load_image(path):
 
 
 def collect_images(path):
-    return [e for e in glob.glob(os.path.join(path, '*.*')) if is_image_file(e)]
+    return sorted([e for e in glob.glob(os.path.join(path, '*.*')) if is_image_file(e)])
 
 
 def save_batched_images(img_tensors, folder=None, filenames=None):
