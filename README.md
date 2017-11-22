@@ -1,6 +1,6 @@
 # OneGAN
 
-[![Build Status](https://img.shields.io/travis/leVirve/OneGAN/master.svg?style=flat-square)](https://travis-ci.com/leVirve/OneGAN)
+[![Build Status](https://travis-ci.com/leVirve/OneGAN.svg?token=6EpaKFxfJsjbzMkoLpeL&branch=master)](https://travis-ci.com/leVirve/OneGAN)
 
 **Oh, GAN! Here's another GAN framework.**
 

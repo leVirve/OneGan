@@ -5,6 +5,7 @@ build/
 dist/
 *.egg-info/
 *.pyc
+.coverage
 
 logs/
 nets.py
