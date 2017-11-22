@@ -24,6 +24,10 @@ class InpaintDastaset(ohgan.data.BaseDastaset):
         ])
         self.debug = kwargs.get('debug')
 
+    def initialize(self, phase):
+        self.sources = self._initialize(self.sources, phase)
+        self.targets = self._initialize(self.targets, phase)
+
     def __getitem__(self, index):
         masked = load_image(self.sources[index]).convert('RGB')
         image = load_image(self.targets[index]).convert('RGB')
@@ -36,14 +40,16 @@ class InpaintDastaset(ohgan.data.BaseDastaset):
 if __name__ == '__main__':
     conditional = True
 
-    roots = [
-        '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/inputs/scribble',
-        '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/gt/'
-    ]
-    loader_args = dict(batch_size=32, num_workers=4, pin_memory=True)
-    dataset = InpaintDastaset(roots, target_size=(128, 128), debug=False)
-    train_loader = ohgan.data.create_dataloader(dataset, phase='train', **loader_args)
-    val_loader = ohgan.data.create_dataloader(dataset, phase='val', **loader_args)
+    dataset_params = {
+        'target_size': (128, 128),
+        'roots': [
+            '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/inputs/scribble',
+            '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/gt/'
+        ]
+    }
+    loader_params = {'batch_size': 32, 'num_workers': 4, 'pin_memory': True}
+    train_loader = InpaintDastaset(**dataset_params).to_loader(phase='train', **loader_params)
+    val_loader = InpaintDastaset(**dataset_params).to_loader(phase='val', **loader_params)
 
     def make_optimizer(model):
         return torch.optim.Adam(model.parameters(), lr=0.0001, betas=(0.5, 0.999))

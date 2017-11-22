@@ -6,4 +6,4 @@
 import onegan.data.loader  # noqa
 import onegan.data.transform  # noqa
 
-from onegan.data.loader import BaseDastaset, create_dataloader  # noqa
+from onegan.data.loader import BaseDastaset  # noqa

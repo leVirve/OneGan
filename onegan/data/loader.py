@@ -31,22 +31,16 @@ def save_batched_images(img_tensors, folder=None, filenames=None):
 
 class BaseDastaset(torch.utils.data.Dataset):
 
-    def initialize(self, phase):
+    def _initialize(self, files, phase):
+        self.phase = phase
         if self.debug:
-            num_split = int(len(self.sources) * 0.1)
-            self.sources = self.sources[:num_split]
-            self.targets = self.targets[:num_split]
+            num_split = int(len(files) * 0.1)
+            files = files[:num_split]
+        num_split = int(len(files) * 0.8)
+        files = files[:num_split] if phase == 'train' else files[num_split:]
+        return files
 
-        num_split = int(len(self.sources) * 0.8)
-        if phase == 'train':
-            self.sources = self.sources[:num_split]
-            self.targets = self.targets[:num_split]
-        else:
-            self.sources = self.sources[num_split:]
-            self.targets = self.targets[num_split:]
-        return self
-
-
-def create_dataloader(dataset, phase, **kwargs):
-    shuffle = phase == 'train'
-    return torch.utils.data.DataLoader(dataset.initialize(phase), shuffle=shuffle, **kwargs)
+    def to_loader(self, phase=None, **kwargs):
+        self.initialize(phase)
+        loader = torch.utils.data.DataLoader(self, shuffle=phase == 'train', **kwargs)
+        return loader
