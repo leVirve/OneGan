@@ -4,3 +4,4 @@
 # https://opensource.org/licenses/MIT
 
 import onegan.external.pix2pix  # noqa
+import onegan.external.dcgan  # noqa
