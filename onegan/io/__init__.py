@@ -3,7 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-import onegan.data.loader  # noqa
-import onegan.data.transform  # noqa
+import onegan.io.loader  # noqa
+import onegan.io.transform  # noqa
 
-from onegan.data.loader import BaseDastaset  # noqa
+from onegan.io.loader import *  # noqa
