@@ -33,6 +33,7 @@ setup(
     install_requires=[
         *pip_requirements(),
         'numpy',
+        'scipy',
         'pillow >= 4.1.1',
         'torch'
     ],
