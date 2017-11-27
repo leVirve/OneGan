@@ -1,3 +1,5 @@
 torchvision
 tensorboardX
 tqdm
+pyaml
+easydict

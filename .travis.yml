@@ -24,4 +24,4 @@ install:
     - python setup.py install
 
 script:
-    - py.test
+    - py.test --cov=onegan
