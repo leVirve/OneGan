@@ -8,7 +8,7 @@ import onegan.metrics  # noqa
 import onegan.estimator  # noqa
 import onegan.extensions  # noqa
 import onegan.utils  # noqa
-
+import onegan.models  # noqa
 import onegan.io  # noqa
 import onegan.external  # noqa
 
