@@ -10,6 +10,57 @@ from torch.autograd import Variable, grad
 from onegan.utils import to_var, to_device
 
 
+def l1_loss(x, y):
+    return nn.functional.l1_loss(x, y)
+
+
+def adversarial_ce_loss(x, value: float):
+    ''' x: output tensor of discriminator
+        value: float
+    '''
+    label = to_var(torch.FloatTensor(x.size()).fill_(value), requires_grad=False)
+    return nn.functional.binary_cross_entropy(x, label)
+
+
+def adversarial_ls_loss(x, value: float):
+    ''' x: output tensor of discriminator
+        value: float
+    '''
+    label = to_var(torch.FloatTensor(x.size()).fill_(value), requires_grad=False)
+    return nn.functional.mse_loss(x, label)
+
+
+def adversarial_w_loss(x, value: bool):
+    ''' x: output tensor of discriminator
+        value: True -> -1, False -> 1
+    '''
+    return -torch.mean(x) if value else torch.mean(x)
+
+
+def gradient_panelty(dnet, target, pred):
+    batch_size = target.size(0)
+    alpha = to_device(torch.rand(batch_size, 1)
+                      .expand(batch_size, target.nelement() // batch_size)
+                      .contiguous().view(target.size()))
+    interp = Variable(alpha * target.data + (1 - alpha) * pred.data, requires_grad=True)
+
+    output = dnet(interp)
+    grads = grad(outputs=output, inputs=interp,
+                 grad_outputs=to_device(torch.ones(output.size())),
+                 create_graph=True, retain_graph=True)[0]
+
+    return ((grads.view(batch_size, -1).norm(dim=1) - 1) ** 2).mean()
+
+
+def conditional_input(source, another, conditional):
+    return torch.cat((source, another), dim=1) if conditional else another
+
+
+def a_loss(loss_terms: dict):
+    loss = [v for k, v in loss_terms.items()]
+    return loss
+
+
 class AdversarialLoss():
 
     def __init__(self, dnet, real_label=1, fake_label=0, use_lsgan=True):

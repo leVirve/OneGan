@@ -19,7 +19,7 @@ def get_dataloader(args, input_size, source_folder, target_folder):
     dataset_params = {'source_folder': source_folder,
                       'target_folder': target_folder,
                       'transform': transform}
-    loader_params = {'batch_size': args.batch_size, 'num_workers': args.num_workers}
+    loader_params = {'batch_size': args.batch_size, 'num_workers': args.worker}
     train_loader = SourceToTargetDataset(phase='train', **dataset_params).to_loader(**loader_params)
     val_loader = SourceToTargetDataset(phase='val', **dataset_params).to_loader(**loader_params)
     return train_loader, val_loader
@@ -30,8 +30,9 @@ def make_optimizer(model, lr):
 
 
 if __name__ == '__main__':
-    parser = ohgan.option.Parser(description='Inpainting cGAN', config='./config.yml')
-    parser.add_argument('--image_size', default=128)
+    parser = ohgan.option.Parser(description='Inpainting cGAN', config='./example/config.yml')
+    parser.add_argument('--name')
+    parser.add_argument('--image_size', type=int, default=128)
     parser.add_argument('--source_folder')
     parser.add_argument('--target_folder')
     args = parser.parse()
@@ -41,8 +42,8 @@ if __name__ == '__main__':
         args, (args.image_size, args.image_size), args.source_folder, args.target_folder)
 
     conditional = True
-    # g = pix2pix.define_G(3, 3, 64, 'unet_128', init_type='xavier').cuda()
-    # d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', init_type='xavier').cuda()
+    # g = pix2pix.define_G(3, 3, 64, 'unet_256', norm='instance', init_type='xavier').cuda()
+    # d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', norm='instance', init_type='xavier').cuda()
     g = ohgan.models.GeneratorUNet(3, 3, 64, norm='instance').cuda()
     d = ohgan.models.Discriminator(6 if conditional else 3, 3, 64, norm='instance').cuda()
     ohgan.models.init_weights(g, 'xavier')
@@ -54,12 +55,11 @@ if __name__ == '__main__':
                      .add_term('gp', ohgan.losses.GradientPaneltyLoss(d), weight=0.25))
     metric = ohgan.metrics.Psnr()
 
-    estimator = ohgan.estimator.OneGANEstimator(
+    estimator = ohgan.estimator.OneWGANEstimator(
         model=(g, d),
         optimizer=(make_optimizer(g, lr=args.lr), make_optimizer(d, lr=args.lr)),
-        criterion=gan_criterion,
         metric=metric,
         saver=ohgan.utils.GANCheckpoint(save_epochs=5),
-        name='flowers'
+        name=args.name
     )
     estimator.run(train_loader, val_loader, epochs=args.epoch)
