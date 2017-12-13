@@ -21,7 +21,7 @@ class Psnr():
             return img.add(-mm).div(mx - mm)
 
         psnrs = np.array([
-            10 * log10(1 / self.mse(normalize(pred), normalize(targ)).data[0])
+            10 * log10(1 / (self.mse(normalize(pred), normalize(targ)).data[0] + 1e-6))
             for pred, targ in zip(output, target)])
         return {'acc/psnr': psnrs.mean()}
 
