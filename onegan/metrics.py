@@ -6,24 +6,19 @@
 from math import log10
 
 import numpy as np
-import torch.nn as nn
+import torch.nn.functional as F
 
 
-class Psnr():
+def psnr(output, target):
 
-    def __init__(self):
-        self.mse = nn.MSELoss()
+    def normalize(img):
+        mm, mx = img.min(), img.max()
+        return img.add(-mm).div(mx - mm)
 
-    def __call__(self, output, target):
-
-        def normalize(img):
-            mm, mx = img.min(), img.max()
-            return img.add(-mm).div(mx - mm)
-
-        psnrs = np.array([
-            10 * log10(1 / (self.mse(normalize(pred), normalize(targ)).data[0] + 1e-6))
-            for pred, targ in zip(output, target)])
-        return {'acc/psnr': psnrs.mean()}
+    psnrs = np.array([
+        10 * log10(1 / (F.mse_loss(normalize(pred), normalize(targ)).data[0] + 1e-6))
+        for pred, targ in zip(output, target)])
+    return psnrs.mean()
 
 
 class Segmentation():

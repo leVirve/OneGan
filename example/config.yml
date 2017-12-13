@@ -5,5 +5,5 @@ worker: 4
 
 image_size: 256
 
-source_folder: '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/inputs/scribble'
-target_folder: '../human-recovery/datasets/bmvc/bmvc_flowers/train_128/gt/'
+source_folder: /archive/datasets/tseng_inpaint_strategy/celebA_iccv/celebA_inputs/randpolys/
+target_folder: /archive/datasets/tseng_inpaint_strategy/celebA_iccv/celebA_label/randpolys/

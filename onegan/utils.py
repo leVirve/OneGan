@@ -5,7 +5,6 @@
 
 import os
 import uuid
-from collections import defaultdict
 
 import torch
 from torch.autograd import Variable
@@ -94,4 +93,3 @@ def get_unique_subfolder(root, name):
 def img_normalize(img):
     mm, mx = img.min(), img.max()
     return img if mm == mx else img.add_(-mm).div_(mx - mm)
-

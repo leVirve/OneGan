@@ -20,6 +20,6 @@ def test_psnr():
     dummy_output = to_var(normalize(torch.rand(10, 3, 128, 128)))
     dummy_target = to_var(normalize(torch.rand(10, 3, 128, 128)))
 
-    accuracy = onegan.metrics.Psnr()
+    accuracy = onegan.metrics.psnr
     psnr = accuracy(dummy_output, dummy_target)
     assert psnr

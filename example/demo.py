@@ -1,5 +1,4 @@
 import torch
-import torch.nn as nn
 from PIL import Image
 import torchvision.transforms as F
 
@@ -42,23 +41,13 @@ if __name__ == '__main__':
         args, (args.image_size, args.image_size), args.source_folder, args.target_folder)
 
     conditional = True
-    # g = pix2pix.define_G(3, 3, 64, 'unet_256', norm='instance', init_type='xavier').cuda()
-    # d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', norm='instance', init_type='xavier').cuda()
-    g = ohgan.models.GeneratorUNet(3, 3, 64, norm='instance').cuda()
-    d = ohgan.models.Discriminator(6 if conditional else 3, 3, 64, norm='instance').cuda()
-    ohgan.models.init_weights(g, 'xavier')
-    ohgan.models.init_weights(d, 'xavier')
+    g = pix2pix.define_G(3, 3, 64, 'unet_256', norm='instance', init_type='xavier').cuda()
+    d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', norm='instance', init_type='xavier').cuda()
 
-    gan_criterion = (ohgan.losses.GANLoss(conditional)
-                     .add_term('smooth', nn.L1Loss(), weight=100)
-                     .add_term('adv', ohgan.losses.AdversarialLoss(d), weight=1)
-                     .add_term('gp', ohgan.losses.GradientPaneltyLoss(d), weight=0.25))
-    metric = ohgan.metrics.Psnr()
-
-    estimator = ohgan.estimator.OneWGANEstimator(
+    estimator = ohgan.estimator.OneGANEstimator(
         model=(g, d),
         optimizer=(make_optimizer(g, lr=args.lr), make_optimizer(d, lr=args.lr)),
-        metric=metric,
+        metric=ohgan.metrics.psnr,
         saver=ohgan.utils.GANCheckpoint(save_epochs=5),
         name=args.name
     )

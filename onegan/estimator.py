@@ -10,12 +10,11 @@ from onegan.utils import to_var
 from onegan.extensions import Logger, History
 
 
-class Estimator():
+class Estimator:
 
-    def __init__(self, model, optimizer, criterion):
+    def __init__(self, model, optimizer):
         self.model = model
         self.optim = optimizer
-        self.criterion = criterion
 
     def run(self, train_loader, validate_loader, epochs):
         for epoch in range(epochs):
@@ -31,18 +30,11 @@ class Estimator():
         self.saver.save(epoch)
 
 
-class GANEstimator(Estimator):
+class OneGANEstimator(Estimator):
 
-    def __init__(self, model, optimizer, criterion):
+    def __init__(self, model, optimizer, metric, saver, name):
         self.gnet, self.dnet = model
         self.g_optim, self.d_optim = optimizer
-        self.criterion = criterion
-
-
-class OneGANEstimator(GANEstimator):
-
-    def __init__(self, model, optimizer, criterion, metric, saver, name):
-        super().__init__(model, optimizer, criterion)
         self.metric = metric
         self.saver = saver
         self.name = name
@@ -50,15 +42,38 @@ class OneGANEstimator(GANEstimator):
         self.logger = Logger(name=name, max_num_images=30)
         self.saver.register_trainer(self)
 
+        self.build_criterion()
+
+    def build_criterion(self):
+        self.recon_weight = 10
+        self.recon_loss = losses.l1_loss
+        self.adv_loss = losses.adversarial_ce_loss
+
+    def foward_d(self, source, output, target):
+        fake = losses.conditional_input(source, output, self.conditional)
+        real = losses.conditional_input(source, target, self.conditional)
+        d_fake = self.adv_loss(self.dnet(fake), False)
+        d_real = self.adv_loss(self.dnet(real), True)
+        d_terms = {'d/real': d_real, 'd/fake': d_fake, 'd/loss': d_real + d_fake}
+        d_loss = d_terms['d/loss']
+        return d_loss, d_terms
+
+    def foward_g(self, source, output, target):
+        recon = self.recon_loss(output, target)
+        adv = self.adv_loss(self.dnet(losses.conditional_input(source, output, self.conditional)), True)
+        g_terms = {'g/recon': recon, 'g/adv': adv, 'g/loss': recon * self.recon_weight + adv}
+        g_loss = g_terms['g/loss']
+        return g_loss, g_terms
+
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)
         for i, (source, target) in enumerate(progress):
             source, target = to_var(source), to_var(target)
             output = self.gnet(source)
 
-            d_loss, d_terms = self.criterion.d_loss(source=source, output=output.detach(), target=target)
-            g_loss, g_terms = self.criterion.g_loss(source=source, output=output, target=target)
-            acc_terms = self.metric(output, target)
+            d_loss, d_terms = self.foward_d(source, output.detach(), target)
+            g_loss, g_terms = self.foward_g(source, output, target)
+            acc = self.metric(output, target)
 
             self.d_optim.zero_grad()
             d_loss.backward()
@@ -69,7 +84,7 @@ class OneGANEstimator(GANEstimator):
             self.g_optim.step()
 
             progress.set_description('Epoch#%d' % (epoch + 1))
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}))
+            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}))
 
             self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
@@ -83,12 +98,12 @@ class OneGANEstimator(GANEstimator):
             source, target = to_var(source, volatile=True), to_var(target, volatile=True)
             output = self.gnet(source)
 
-            _, d_terms = self.criterion.d_loss(source=source, output=output, target=target)
-            _, g_terms = self.criterion.g_loss(source=source, output=output, target=target)
-            acc_terms = self.metric(output, target)
+            _, d_terms = self.foward_d(source, output.detach(), target)
+            _, g_terms = self.foward_g(source, output, target)
+            acc = self.metric(output, target)
 
             progress.set_description('Evaluate')
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}, log_suffix='_val'))
+            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}, log_suffix='_val'))
 
             self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
@@ -97,34 +112,27 @@ class OneGANEstimator(GANEstimator):
         self.logger.scalar(history.metric(), epoch)
 
 
-class OneWGANEstimator(GANEstimator):
+class OneWGANEstimator(OneGANEstimator):
 
     def __init__(self, model, optimizer, metric, saver, name):
-        super().__init__(model, optimizer, None)
-        self.metric = metric
-        self.saver = saver
-        self.name = name
+        super().__init__(model, optimizer)
         self.critic_iters = 5
 
-        self.logger = Logger(name=name, max_num_images=30)
-        self.saver.register_trainer(self)
+    def build_criterion(self):
+        self.recon_weight = 10
+        self.gp_weight = 10
+        self.recon_loss = losses.l1_loss
+        self.adv_loss = losses.adversarial_w_loss
 
     def foward_d(self, source, output, target):
         fake = losses.conditional_input(source, output, self.conditional)
         real = losses.conditional_input(source, target, self.conditional)
-        d_fake = losses.adversarial_w_loss(self.dnet(fake), False)
-        d_real = losses.adversarial_w_loss(self.dnet(real), True)
+        d_fake = self.adv_loss(self.dnet(fake), False)
+        d_real = self.adv_loss(self.dnet(real), True)
         d_gp = losses.gradient_panelty(self.dnet, real, fake)
-        d_terms = {'d/real': d_real, 'd/fake': d_fake, 'd/gp': d_gp, 'd/loss': d_real + d_fake + 0.25 * d_gp}
+        d_terms = {'d/real': d_real, 'd/fake': d_fake, 'd/gp': d_gp, 'd/loss': d_real + d_fake + self.gp_weight * d_gp}
         d_loss = d_terms['d/loss']
         return d_loss, d_terms
-
-    def foward_g(self, source, output, target):
-        l1 = losses.l1_loss(output, target)
-        adv = losses.adversarial_w_loss(self.dnet(losses.conditional_input(source, output, self.conditional)), True)
-        g_terms = {'g/smooth': l1, 'g/adv': adv, 'g/loss': l1 * 100 + adv}
-        g_loss = g_terms['g/loss']
-        return g_loss, g_terms
 
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)
@@ -133,6 +141,7 @@ class OneWGANEstimator(GANEstimator):
             source, target = next(progress)
             return to_var(source), to_var(target)
 
+        # TODO: need go through and modify to work
         for _ in range(len(progress)):
 
             for _ in range(self.critic_iters):
@@ -152,31 +161,12 @@ class OneWGANEstimator(GANEstimator):
             g_loss.backward()
             self.g_optim.step()
 
-            acc_terms = self.metric(output, target)
+            acc = self.metric(output, target)
             progress.set_description('Epoch#%d' % (epoch + 1))
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}))
+            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}))
 
-            self.summary_image(
+            self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
                 epoch=epoch, prefix='train_')
 
-        self.summary_history(history.metric(), epoch)
-
-    def evaluate(self, data_loader, epoch, history, **kwargs):
-        progress = tqdm.tqdm(data_loader, leave=False)
-        for i, (source, target) in enumerate(progress):
-            source, target = to_var(source, volatile=True), to_var(target, volatile=True)
-            output = self.gnet(source)
-
-            _, d_terms = self.foward_d(source, output, target)
-            _, g_terms = self.foward_g(source, output, target)
-            acc_terms = self.metric(output, target)
-
-            progress.set_description('Evaluate')
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}, log_suffix='_val'))
-
-            self.summary_image(
-                {'input': source.data, 'output': output.data, 'target': target.data},
-                epoch=epoch, prefix='val_')
-
-        self.summary_history(history.metric(), epoch)
+        self.logger.scalar(history.metric(), epoch)

@@ -128,7 +128,6 @@ class Discriminator(nn.Module):
             nn.LeakyReLU(0.2, True)
         ]
         layers += [nn.Conv2d(ndf * nf_mult, 1, kernel_size=4, stride=1, padding=1)]
-        layers += [nn.Sigmoid()]
         self.model = nn.Sequential(*layers)
 
     def forward(self, x):

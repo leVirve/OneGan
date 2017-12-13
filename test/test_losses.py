@@ -4,9 +4,9 @@
 # https://opensource.org/licenses/MIT
 
 import torch
-import torch.nn as nn
+import torch.nn.functional as F
 
-import onegan
+import onegan.losses as losses
 from onegan.external import pix2pix
 from onegan.utils import to_var, to_device, cuda_available
 
@@ -14,11 +14,6 @@ from onegan.utils import to_var, to_device, cuda_available
 conditional = True
 g = pix2pix.define_G(3, 3, 64, 'unet_128', init_type='xavier')
 d = pix2pix.define_D(6 if conditional else 3, 64, 'basic', init_type='xavier')
-gan_criterion = (onegan.losses.GANLoss(conditional)
-                 .add_term('smooth', nn.L1Loss(), weight=100)
-                 .add_term('adv', onegan.losses.AdversarialLoss(d), weight=1)
-                 .add_term('gp', onegan.losses.GradientPaneltyLoss(d), weight=0.25))
-
 if cuda_available:
     g, d = g.cuda(), d.cuda()
 
@@ -29,8 +24,10 @@ def test_loss_terms():
     source, target = to_var(source), to_var(target)
     output = g(source)
 
-    g_loss, g_terms = gan_criterion.g_loss(source, output, target)
-    d_loss, d_terms = gan_criterion.d_loss(source, output, target)
+    real = losses.conditional_input(source, target, conditional)
+    fake = losses.conditional_input(source, output, conditional)
 
-    assert g_terms.keys()
-    assert d_terms.keys()
+    losses.adversarial_ce_loss(F.sigmoid(d(fake)), 1)
+    losses.adversarial_ls_loss(d(fake), 1)
+    losses.adversarial_w_loss(d(fake), True)
+    losses.gradient_penalty(d, real, fake)
