@@ -138,7 +138,7 @@ class OneWGANEstimator(GANEstimator):
             for _ in range(self.critic_iters):
                 source, target = fetch_data()
                 output = self.gnet(source).detach()
-                d_loss, d_terms = self.foward_d(source, target, output)
+                d_loss, d_terms = self.foward_d(source, output, target)
 
                 self.d_optim.zero_grad()
                 d_loss.backward()
@@ -146,7 +146,7 @@ class OneWGANEstimator(GANEstimator):
 
             source, target = fetch_data()
             output = self.gnet(source)
-            g_loss, g_terms = self.foward_g(source, target, output)
+            g_loss, g_terms = self.foward_g(source, output, target)
 
             self.g_optim.zero_grad()
             g_loss.backward()
@@ -168,8 +168,8 @@ class OneWGANEstimator(GANEstimator):
             source, target = to_var(source, volatile=True), to_var(target, volatile=True)
             output = self.gnet(source)
 
-            _, d_terms = self.foward_d(source, target, output)
-            _, g_terms = self.foward_g(source, target, output)
+            _, d_terms = self.foward_d(source, output, target)
+            _, g_terms = self.foward_g(source, output, target)
             acc_terms = self.metric(output, target)
 
             progress.set_description('Evaluate')
