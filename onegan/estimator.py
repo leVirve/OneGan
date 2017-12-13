@@ -6,8 +6,8 @@
 import tqdm
 
 import onegan.losses as losses
-from onegan.utils import History, Logger, to_var
-from onegan.extensions import ImageSummaryExtention, HistoryExtention
+from onegan.utils import to_var
+from onegan.extensions import Logger, History
 
 
 class Estimator():
@@ -47,9 +47,7 @@ class OneGANEstimator(GANEstimator):
         self.saver = saver
         self.name = name
 
-        logger = Logger(name=name)
-        self.summary_history = HistoryExtention(logger)
-        self.summary_image = ImageSummaryExtention(logger, summary_num_images=30)
+        self.logger = Logger(name=name, max_num_images=30)
         self.saver.register_trainer(self)
 
     def train(self, data_loader, epoch, history, **kwargs):
@@ -73,11 +71,11 @@ class OneGANEstimator(GANEstimator):
             progress.set_description('Epoch#%d' % (epoch + 1))
             progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}))
 
-            self.summary_image(
+            self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
                 epoch=epoch, prefix='train_')
 
-        self.summary_history(history.metric(), epoch)
+        self.logger.scalar(history.metric(), epoch)
 
     def evaluate(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader, leave=False)
@@ -92,11 +90,11 @@ class OneGANEstimator(GANEstimator):
             progress.set_description('Evaluate')
             progress.set_postfix(history.add({**g_terms, **d_terms}, {**acc_terms}, log_suffix='_val'))
 
-            self.summary_image(
+            self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
                 epoch=epoch, prefix='val_')
 
-        self.summary_history(history.metric(), epoch)
+        self.logger.scalar(history.metric(), epoch)
 
 
 class OneWGANEstimator(GANEstimator):
@@ -108,9 +106,7 @@ class OneWGANEstimator(GANEstimator):
         self.name = name
         self.critic_iters = 5
 
-        logger = Logger(name=name)
-        self.summary_history = HistoryExtention(logger)
-        self.summary_image = ImageSummaryExtention(logger, summary_num_images=30)
+        self.logger = Logger(name=name, max_num_images=30)
         self.saver.register_trainer(self)
 
     def foward_d(self, source, output, target):
