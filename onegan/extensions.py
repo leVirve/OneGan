@@ -2,6 +2,7 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
+
 from collections import defaultdict
 
 import tensorboardX
@@ -23,8 +24,9 @@ def check_num_images(f):
         if instance._tag_base_counter >= instance.max_num_images:
             return
         num_summaried_img = len(next(iter(kw_images.values())))
+        result = f(instance, kw_images, epoch, prefix)
         instance._tag_base_counter += num_summaried_img
-        return f(instance, kw_images, epoch, prefix)
+        return result
     return wrapper
 
 
