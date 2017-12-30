@@ -5,6 +5,7 @@
 
 from collections import defaultdict
 
+from torch.autograd import Variable
 import tensorboardX
 
 from onegan.utils import get_unique_subfolder, img_normalize
@@ -65,22 +66,18 @@ class Logger(Extension):
 
 class History(Extension):
 
-    def __init__(self, length):
-        self.len = length
-        self.losses = defaultdict(float)
-        self.accuracies = defaultdict(float)
+    def __init__(self):
+        self.count = 0
+        self.meters = defaultdict(float)
 
-    def add(self, losses, accuracies, log_suffix=''):
+    def add(self, kwvalues, n=1, log_suffix=''):
         display = {}
-        for name, acc in accuracies.items():
-            self.accuracies[f'{name}{log_suffix}'] += acc
-            display[name] = '%.02f' % acc
-        for name, loss in losses.items():
-            self.losses[f'{name}{log_suffix}'] += loss.data[0]
-            display[name] = '%.03f' % loss.data[0]
+        for name, value in kwvalues.items():
+            val = value.data[0] if isinstance(value, Variable) else value
+            self.meters[f'{name}{log_suffix}'] += val
+            display[name] = f'{val:.03f}'
+        self.count += n
         return display
 
     def metric(self):
-        terms = {name: acc / self.len for name, acc in self.accuracies.items()}
-        terms.update({name: loss / self.len for name, loss in self.losses.items()})
-        return terms
+        return {name: val / self.count for name, val in self.meters.items()}

@@ -50,8 +50,8 @@ class Segmentation():
         confusion = np.zeros((n_class, n_class), dtype=np.int64)
 
         for pred_label, gt_label in zip(pred_labels, gt_labels):
-            pred_label = pred_label.view(-1)
-            gt_label = gt_label.view(-1)
+            pred_label = pred_label.flat
+            gt_label = gt_label.flat
             mask = 255 > gt_label
             confusion += np.bincount(
                 n_class * gt_label[mask].astype(int) + pred_label[mask],
