@@ -6,7 +6,7 @@ def dummy_collect_images():
     return [None] * 100
 
 
-class DummyDastaset(onegan.io.BaseDastaset):
+class DummyDataset(onegan.io.BaseDataset):
 
     def __init__(self, phase, debug=False, **kwargs):
         self.phase = phase
@@ -22,8 +22,8 @@ class DummyDastaset(onegan.io.BaseDastaset):
 def test_base_loader():
     dataset_params = {'root': None}
     loader_params = dict(batch_size=32, num_workers=4, pin_memory=True)
-    train_loader = DummyDastaset(phase='train', **dataset_params).to_loader(**loader_params)
-    val_loader = DummyDastaset(phase='val', **dataset_params).to_loader(**loader_params)
+    train_loader = DummyDataset(phase='train', **dataset_params).to_loader(**loader_params)
+    val_loader = DummyDataset(phase='val', **dataset_params).to_loader(**loader_params)
     assert len(train_loader) != len(val_loader)
 
 

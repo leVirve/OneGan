@@ -14,7 +14,7 @@ from torchvision.datasets.folder import is_image_file
 
 
 __all__ = [
-    'BaseDastaset', 'SourceToTargetDataset',
+    'BaseDataset', 'SourceToTargetDataset',
     'load_image', 'collect_images', 'save_batched_images'
 ]
 
@@ -35,7 +35,7 @@ def save_batched_images(img_tensors, folder=None, filenames=None):
         scipy.misc.imsave(path, img)
 
 
-class BaseDastaset(torch.utils.data.Dataset):
+class BaseDataset(torch.utils.data.Dataset):
 
     def __init__(self, phase):
         self.phase = phase
@@ -54,7 +54,7 @@ class BaseDastaset(torch.utils.data.Dataset):
             self, shuffle=shuffle, pin_memory=pin_memory, **kwargs)
 
 
-class SourceToTargetDataset(BaseDastaset):
+class SourceToTargetDataset(BaseDataset):
 
     def __init__(self, phase, source_folder, target_folder, transform=None, debug=False):
         super().__init__(phase)
