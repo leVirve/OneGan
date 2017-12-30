@@ -51,4 +51,5 @@ if __name__ == '__main__':
         saver=ohgan.utils.GANCheckpoint(save_epochs=5),
         name=args.name
     )
+    estimator.conditional = conditional
     estimator.run(train_loader, val_loader, epochs=args.epoch)

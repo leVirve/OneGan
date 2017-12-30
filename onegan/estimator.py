@@ -12,16 +12,22 @@ from onegan.extensions import Logger, History
 
 class Estimator:
 
-    def __init__(self, model, optimizer):
+    def __init__(self, model, optimizer, metric, saver, name):
         self.model = model
         self.optim = optimizer
+        self.metric = metric
+        self.saver = saver
+        self.name = name
+
+        self.logger = Logger(name=name, max_num_images=30)
+        self.saver.register_trainer(self)
 
     def run(self, train_loader, validate_loader, epochs):
         for epoch in range(epochs):
-            self.gnet.train(), self.dnet.train()
-            self.train(train_loader, epoch, History(length=len(train_loader)))
-            self.gnet.eval(), self.dnet.eval()
-            self.evaluate(validate_loader, epoch, History(length=len(validate_loader)))
+            self.model.train()
+            self.train(train_loader, epoch, History())
+            self.model.eval()
+            self.evaluate(validate_loader, epoch, History())
             self.save_checkpoint(epoch)
 
     def save_checkpoint(self, epoch):
@@ -47,7 +53,7 @@ class OneGANEstimator(Estimator):
     def build_criterion(self):
         self.recon_weight = 10
         self.recon_loss = losses.l1_loss
-        self.adv_loss = losses.adversarial_ce_loss
+        self.adv_loss = losses.adversarial_ls_loss
 
     def foward_d(self, source, output, target):
         fake = losses.conditional_input(source, output, self.conditional)
@@ -84,7 +90,7 @@ class OneGANEstimator(Estimator):
             self.g_optim.step()
 
             progress.set_description('Epoch#%d' % (epoch + 1))
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}))
+            progress.set_postfix(history.add({**g_terms, **d_terms, 'acc/psnr': acc}))
 
             self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
@@ -103,7 +109,7 @@ class OneGANEstimator(Estimator):
             acc = self.metric(output, target)
 
             progress.set_description('Evaluate')
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}, log_suffix='_val'))
+            progress.set_postfix(history.add({**g_terms, **d_terms, 'acc/psnr': acc}, log_suffix='_val'))
 
             self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
@@ -163,7 +169,7 @@ class OneWGANEstimator(OneGANEstimator):
 
             acc = self.metric(output, target)
             progress.set_description('Epoch#%d' % (epoch + 1))
-            progress.set_postfix(history.add({**g_terms, **d_terms}, {'acc/psnr': acc}))
+            progress.set_postfix(history.add({**g_terms, **d_terms, 'acc/psnr': acc}))
 
             self.logger.image(
                 {'input': source.data, 'output': output.data, 'target': target.data},
