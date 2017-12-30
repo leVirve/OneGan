@@ -7,20 +7,19 @@ import tqdm
 
 import onegan.losses as losses
 from onegan.utils import to_var
-from onegan.extensions import Logger, History
+from onegan.extension import History, Logger, Checkpoint, GANCheckpoint
 
 
 class Estimator:
 
-    def __init__(self, model, optimizer, metric, saver, name):
+    def __init__(self, model, optimizer, metric, name, **kwargs):
         self.model = model
         self.optim = optimizer
         self.metric = metric
-        self.saver = saver
         self.name = name
 
-        self.logger = Logger(name=name, max_num_images=30)
-        self.saver.register_trainer(self)
+        self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
+        self.logger = Logger(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
     def run(self, train_loader, validate_loader, epochs):
         for epoch in range(epochs):
@@ -33,20 +32,19 @@ class Estimator:
     def save_checkpoint(self, epoch):
         if not hasattr(self, 'saver'):
             return
-        self.saver.save(epoch)
+        self.saver.save(self, epoch)
 
 
 class OneGANEstimator(Estimator):
 
-    def __init__(self, model, optimizer, metric, saver, name):
+    def __init__(self, model, optimizer, metric, name, **kwargs):
         self.gnet, self.dnet = model
         self.g_optim, self.d_optim = optimizer
         self.metric = metric
-        self.saver = saver
         self.name = name
 
-        self.logger = Logger(name=name, max_num_images=30)
-        self.saver.register_trainer(self)
+        self.saver = GANCheckpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
+        self.logger = Logger(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
         self.build_criterion()
 

@@ -48,7 +48,7 @@ if __name__ == '__main__':
         model=(g, d),
         optimizer=(make_optimizer(g, lr=args.lr), make_optimizer(d, lr=args.lr)),
         metric=ohgan.metrics.psnr,
-        saver=ohgan.utils.GANCheckpoint(save_epochs=5),
+        save_epochs=5,
         name=args.name
     )
     estimator.conditional = conditional
