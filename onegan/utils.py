@@ -7,6 +7,7 @@ import os
 import uuid
 
 import torch
+import scipy.misc
 from torch.autograd import Variable
 
 cuda_available = torch.cuda.is_available()
@@ -40,3 +41,11 @@ def unique_experiment_name(root, name):
 def img_normalize(img):
     mm, mx = img.min(), img.max()
     return img if mm == mx else img.add_(-mm).div_(mx - mm)
+
+
+def save_batched_images(img_tensors, folder=None, filenames=None):
+    os.makedirs(folder, exist_ok=True)
+
+    for fname, img in zip(filenames, img_tensors):
+        path = os.path.join(folder, '%s.png' % fname)
+        scipy.misc.imsave(path, img_normalize(img.cpu().numpy()))

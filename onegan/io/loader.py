@@ -8,14 +8,13 @@ import os
 import glob
 
 import torch
-import scipy.misc
 from PIL import Image
 from torchvision.datasets.folder import is_image_file
 
 
 __all__ = [
     'BaseDataset', 'SourceToTargetDataset',
-    'load_image', 'collect_images', 'save_batched_images'
+    'load_image', 'collect_images'
 ]
 
 
@@ -25,14 +24,6 @@ def load_image(path):
 
 def collect_images(path):
     return sorted([e for e in glob.glob(os.path.join(path, '*.*')) if is_image_file(e)])
-
-
-def save_batched_images(img_tensors, folder=None, filenames=None):
-    os.makedirs(folder, exist_ok=True)
-
-    for fname, img in zip(filenames, img_tensors):
-        path = os.path.join(folder, '%s.png' % fname)
-        scipy.misc.imsave(path, img)
 
 
 class BaseDataset(torch.utils.data.Dataset):
