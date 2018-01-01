@@ -5,6 +5,7 @@
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 from torch.autograd import Variable, grad
 
 from onegan.utils import to_var, to_device
@@ -51,3 +52,24 @@ def gradient_penalty(dnet, target, pred):
 
 def conditional_input(source, another, conditional):
     return torch.cat((source, another), dim=1) if conditional else another
+
+
+class CrossEntropyLoss2d(nn.Module):
+
+    def __init__(self, weight=None, size_average=True, ignore_index=255):
+        super().__init__()
+        self.nll_loss = nn.NLLLoss2d(weight, size_average, ignore_index)
+
+    def forward(self, outputs, targets):
+        return self.nll_loss(F.log_softmax(outputs, dim=1), targets)
+
+
+class FocalLoss2d(nn.Module):
+
+    def __init__(self, gamma=2, weight=None, size_average=True, ignore_index=255):
+        super(FocalLoss2d, self).__init__()
+        self.gamma = gamma
+        self.nll_loss = nn.NLLLoss2d(weight, size_average, ignore_index)
+
+    def forward(self, inputs, targets):
+        return self.nll_loss((1 - F.softmax(inputs, dim=1)) ** self.gamma * F.log_softmax(inputs, dim=1), targets)
