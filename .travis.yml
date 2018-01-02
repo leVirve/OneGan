@@ -13,15 +13,14 @@ before_install:
     # Useful for debugging any issues with conda
     - conda info -a
 
-before_script:
-    - flake8 .
-
 install:
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pytorch scipy -c soumith
     - source activate test-environment
     - pip install --upgrade pytest flake8
     - pip install -r requirements.txt
-    - python setup.py install
+
+before_script:
+    - flake8 .
 
 script:
     - py.test
