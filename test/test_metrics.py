@@ -6,20 +6,31 @@
 import torch
 
 import onegan
-from onegan.utils import to_var
-
-
-def normalize(x):
-    mm, mx = x.min(), x.max()
-    x = x.add_(-mm).div_(mx - mm)
-    x = x.add_(-0.5).div_(0.5)
-    return x
+from onegan.utils import to_var, img_normalize
 
 
 def test_psnr():
-    dummy_output = to_var(normalize(torch.rand(10, 3, 128, 128)))
-    dummy_target = to_var(normalize(torch.rand(10, 3, 128, 128)))
+    dummy_output = to_var(img_normalize(torch.rand(4, 3, 64, 64)))
+    dummy_target = to_var(img_normalize(torch.rand(4, 3, 64, 64)))
 
-    accuracy = onegan.metrics.psnr
-    psnr = accuracy(dummy_output, dummy_target)
+    psnr = onegan.metrics.psnr(dummy_output, dummy_target)
     assert psnr
+
+
+def test_semantic_segmentation_confusion():
+    num_class = 7
+    gt = to_var(torch.LongTensor(4, 3).random_(to=num_class))
+    pred = to_var(torch.LongTensor(4, 3).random_(to=num_class))
+
+    confusion = onegan.metrics.semantic_segmentation_confusion(pred, gt, num_class)
+    assert confusion.sum() == 4 * 3
+
+
+def test_semantic_segmentation_iou():
+    num_class = 7
+    gt = to_var(torch.LongTensor(4, 3).random_(0, to=2))
+    pred = to_var(torch.LongTensor(4, 3).random_(3, to=4))
+
+    confusion = onegan.metrics.semantic_segmentation_confusion(pred, gt, num_class)
+    iou = onegan.metrics.semantic_segmentation_iou(confusion)
+    assert len(iou) == num_class
