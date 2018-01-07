@@ -134,60 +134,27 @@ class Discriminator(nn.Module):
         return self.model(x)
 
 
-def weights_init_normal(m):
-    classname = m.__class__.__name__
-    if 'Conv' in classname:
-        nn.init.uniform(m.weight.data, 0.0, 0.02)
-    elif 'Linear' in classname:
-        nn.init.uniform(m.weight.data, 0.0, 0.02)
-    elif 'BatchNorm2d' in classname:
-        nn.init.uniform(m.weight.data, 1.0, 0.02)
-        nn.init.constant(m.bias.data, 0.0)
+def init_weights(net, init_method='normal'):
 
+    def init_module_weight(m):
+        module_name = m.__class__.__name__
+        module_name = module_name.replace('1d', '').replace('2d', '').replace('3d', '')
 
-def weights_init_xavier(m):
-    classname = m.__class__.__name__
-    if 'Conv' in classname:
-        nn.init.xavier_normal(m.weight.data, gain=1)
-    elif 'Linear' in classname:
-        nn.init.xavier_normal(m.weight.data, gain=1)
-    elif 'BatchNorm2d' in classname:
-        nn.init.uniform(m.weight.data, 1.0, 0.02)
-        nn.init.constant(m.bias.data, 0.0)
+        if module_name == 'BatchNorm':
+            nn.init.uniform(m.weight.data, 1.0, 0.02)
+            nn.init.constant(m.bias.data, 0.0)
+        elif module_name in ('Conv', 'Linear'):
+            init_func(m)
 
+    init_func = {
+        'normal': lambda x: nn.init.uniform(x.weight.data, 0.0, 0.02),
+        'kaiming': lambda x: nn.init.kaiming_normal(x.weight.data, a=0, mode='fan_in'),
+        'xavier': lambda x: nn.init.xavier_normal(x.weight.data, gain=1),
+        'orthogonal': lambda x: nn.init.orthogonal(x.weight.data, gain=1),
+    }.get(init_method)
 
-def weights_init_kaiming(m):
-    classname = m.__class__.__name__
-    if 'Conv' in classname:
-        nn.init.kaiming_normal(m.weight.data, a=0, mode='fan_in')
-    elif 'Linear' in classname:
-        nn.init.kaiming_normal(m.weight.data, a=0, mode='fan_in')
-    elif 'BatchNorm2d' in classname:
-        nn.init.uniform(m.weight.data, 1.0, 0.02)
-        nn.init.constant(m.bias.data, 0.0)
+    if init_func is None:
+        raise NotImplementedError('initialization method [%s] is not implemented' % init_method)
 
-
-def weights_init_orthogonal(m):
-    classname = m.__class__.__name__
-    if 'Conv' in classname:
-        nn.init.orthogonal(m.weight.data, gain=1)
-    elif 'Linear' in classname:
-        nn.init.orthogonal(m.weight.data, gain=1)
-    elif 'BatchNorm2d' in classname:
-        nn.init.uniform(m.weight.data, 1.0, 0.02)
-        nn.init.constant(m.bias.data, 0.0)
-
-
-initial_functions = {
-    'normal': weights_init_normal,
-    'xavier': weights_init_xavier,
-    'kaiming': weights_init_kaiming,
-    'orthogonal': weights_init_orthogonal,
-}
-
-
-def init_weights(net, init_type='normal'):
-    if init_type not in initial_functions:
-        raise NotImplementedError('initialization method [%s] is not implemented' % init_type)
-    print('initialization method [%s]' % init_type)
-    net.apply(initial_functions[init_type])
+    print('initialization method [%s]' % init_method)
+    net.apply(init_module_weight)
