@@ -4,7 +4,10 @@
 # https://opensource.org/licenses/MIT
 
 import os
+import time
 import uuid
+from collections import OrderedDict
+from functools import wraps
 
 import torch
 import scipy.misc
@@ -26,26 +29,69 @@ def to_var(x, **kwargs):
     return var
 
 
+def set_device_mode(device='gpu'):
+    assert device in ('cpu', 'gpu')
+    global cuda_available
+    cuda_available = device == 'gpu'
+
+
 def unique_experiment_name(root, name):
     target_path = os.path.join(root, name)
     if os.path.exists(target_path):
         name = f'{name}_' + uuid.uuid4().hex[:6]
 
-    if 'experiment_name' not in globals():
+    _name = globals().get('experiment_name')
+    if _name is None or _name[:-6] != name:
         global experiment_name
         experiment_name = name
 
     return os.path.join(root, experiment_name)
 
 
-def img_normalize(img):
-    mm, mx = img.min(), img.max()
-    return img if mm == mx else img.add_(-mm).div_(mx - mm)
+def img_normalize(img, img_range=None):
+    ''' normalize the tensor into (0, 1)
+        tensor: Tensor or Variable
+        img_range: tuple of (min_val, max_val)
+    '''
+    t = img.clone()
+    if img_range:
+        mm, mx = img_range[0], img_range[1]
+    else:
+        mm, mx = t.min(), t.max()
+    if isinstance(img, Variable):
+        return t.add(-mm).div(mx - mm)
+    return t.add_(-mm).div_(mx - mm)
 
 
 def save_batched_images(img_tensors, folder=None, filenames=None):
     os.makedirs(folder, exist_ok=True)
 
     for fname, img in zip(filenames, img_tensors):
-        path = os.path.join(folder, '%s.png' % fname)
-        scipy.misc.imsave(path, img_normalize(img.cpu().numpy()))
+        path = os.path.join(folder, fname)
+        scipy.misc.imsave(path, img_normalize(img).cpu().numpy())
+
+
+def export_checkpoint_weight(checkpoint_path, remove_module=True):
+
+    def clean_module(state_dict):
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            new_state_dict[k.replace('module.', '')] = v
+        return new_state_dict
+
+    ckpt = torch.load(checkpoint_path)
+    weight = ckpt['model']
+    return clean_module(weight) if remove_module else weight
+
+
+def timeit(f):
+
+    @wraps(f)
+    def wrap(*args, **kw):
+        s = time.time()
+        result = f(*args, **kw)
+        e = time.time()
+        print('--> %s(), cost %2.4f sec' % (f.__name__, e - s))
+        return result
+
+    return wrap
