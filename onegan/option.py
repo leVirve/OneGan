@@ -6,7 +6,6 @@
 import argparse
 
 import yaml
-from easydict import EasyDict
 
 
 class Parser():
@@ -16,11 +15,13 @@ class Parser():
         self.parser = argparse.ArgumentParser(description=description)
         self._add_default_option()
 
-    def parse(self):
+    def parse(self, args=None):
         base_cfg = self._load_option_config(self.config_file)
-        cfg = vars(self.parser.parse_args())
-        base_cfg.update({k: v for k, v in cfg.items() if v})
-        return EasyDict(**base_cfg)
+        cli_cfg = self.parser.parse_args(args)
+        for k, v in base_cfg.items():
+            if k not in cli_cfg or not getattr(cli_cfg, k):
+                setattr(cli_cfg, k, v)
+        return cli_cfg
 
     def add_argument(self, *args, **kwargs):
         self.parser.add_argument(*args, **kwargs)

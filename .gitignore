@@ -4,6 +4,7 @@
 __pycache__/
 build/
 dist/
+htmlcov/
 *.egg-info/
 *.pyc
 .coverage

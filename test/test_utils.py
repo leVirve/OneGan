@@ -82,5 +82,5 @@ def test_unique_experiment_name_different_experiments():
 
 def test_timeit():
     @timeit
-    def dummy_foo():
-        pass
+    def dummy_foo(arg='87'):
+        print(arg)

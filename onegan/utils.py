@@ -60,7 +60,10 @@ def img_normalize(img, img_range=None):
         mm, mx = t.min(), t.max()
     if isinstance(img, Variable):
         return t.add(-mm).div(mx - mm)
-    return t.add_(-mm).div_(mx - mm)
+    try:
+        return t.add_(-mm).div_(mx - mm)
+    except RuntimeError:
+        return img
 
 
 def save_batched_images(img_tensors, folder=None, filenames=None):
