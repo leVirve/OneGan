@@ -18,9 +18,9 @@ def get_upsampling_weight(in_channels, out_channels, kernel_size):
 
 
 class FCN32VGG(nn.Module):
-    def __init__(self, num_classes, pretrained=True):
+    def __init__(self, num_classes, pretrained=True, base='vgg16_bn'):
         super(FCN32VGG, self).__init__()
-        vgg = models.vgg16(pretrained=pretrained)
+        vgg = getattr(models, base)(pretrained=pretrained)
         features, classifier = list(vgg.features.children()), list(vgg.classifier.children())
 
         features[0].padding = (100, 100)
@@ -58,9 +58,9 @@ class FCN32VGG(nn.Module):
 
 
 class FCN16VGG(nn.Module):
-    def __init__(self, num_classes, pretrained=True):
+    def __init__(self, num_classes, pretrained=True, base='vgg16'):
         super(FCN16VGG, self).__init__()
-        vgg = models.vgg16(pretrained=pretrained)
+        vgg = getattr(models, base)(pretrained=pretrained)
         features, classifier = list(vgg.features.children()), list(vgg.classifier.children())
 
         features[0].padding = (100, 100)
@@ -71,7 +71,7 @@ class FCN16VGG(nn.Module):
             elif 'ReLU' in f.__class__.__name__:
                 f.inplace = True
 
-        self.features4 = nn.Sequential(*features[: 24])
+        self.features4 = nn.Sequential(*features[:24])
         self.features5 = nn.Sequential(*features[24:])
 
         self.score_pool4 = nn.Conv2d(512, num_classes, kernel_size=1)
@@ -112,9 +112,9 @@ class FCN16VGG(nn.Module):
 
 # This is implemented in full accordance with the original one (https://github.com/shelhamer/fcn.berkeleyvision.org)
 class FCN8s(nn.Module):
-    def __init__(self, num_classes, pretrained=True, caffe=False):
+    def __init__(self, num_classes, pretrained=True, base='vgg16'):
         super(FCN8s, self).__init__()
-        vgg = models.vgg16(pretrained=pretrained)
+        vgg = getattr(models, base)(pretrained=pretrained)
         features, classifier = list(vgg.features.children()), list(vgg.classifier.children())
 
         '''
@@ -133,7 +133,7 @@ class FCN8s(nn.Module):
                 f.inplace = True
 
         self.features3 = nn.Sequential(*features[: 17])
-        self.features4 = nn.Sequential(*features[17: 24])
+        self.features4 = nn.Sequential(*features[17:24])
         self.features5 = nn.Sequential(*features[24:])
 
         self.score_pool3 = nn.Conv2d(256, num_classes, kernel_size=1)
