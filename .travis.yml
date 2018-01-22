@@ -16,7 +16,7 @@ before_install:
 install:
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pytorch scipy -c soumith
     - source activate test-environment
-    - pip install --upgrade pytest flake8
+    - pip install --upgrade pytest pytest-cov flake8
     - pip install -r requirements.txt
 
 before_script:
