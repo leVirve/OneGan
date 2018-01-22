@@ -22,7 +22,7 @@ def test_semantic_segmentation_confusion():
     gt = to_var(torch.LongTensor(4, 3).random_(to=num_class))
     pred = to_var(torch.LongTensor(4, 3).random_(to=num_class))
 
-    confusion = onegan.metrics.semantic_segmentation_confusion(pred, gt, num_class)
+    confusion = onegan.metrics.semantic_segmentation.confusion_table(pred, gt, num_class)
     assert confusion.sum() == 4 * 3
 
 
@@ -31,6 +31,18 @@ def test_semantic_segmentation_iou():
     gt = to_var(torch.LongTensor(4, 3).random_(0, to=2))
     pred = to_var(torch.LongTensor(4, 3).random_(3, to=4))
 
-    confusion = onegan.metrics.semantic_segmentation_confusion(pred, gt, num_class)
-    iou = onegan.metrics.semantic_segmentation_iou(confusion)
+    confusion = onegan.metrics.semantic_segmentation.confusion_table(pred, gt, num_class)
+    iou = onegan.metrics.semantic_segmentation.intersection_over_union(confusion)
     assert len(iou) == num_class
+
+
+def test_semantic_segmentation_metric():
+    num_class = 3
+    gt = to_var(torch.LongTensor(3, 3).random_(to=num_class))
+    pred = to_var(torch.LongTensor(3, 3).random_(to=num_class))
+
+    metric = onegan.metrics.semantic_segmentation.Metric(num_class=num_class, only_scalar=True, prefix='acc/')
+    scalar_result = metric(pred, gt)
+    metric = onegan.metrics.semantic_segmentation.Metric(num_class=num_class)
+    full_result = metric(pred, gt)
+    assert scalar_result.keys() != full_result.keys()
