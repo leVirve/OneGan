@@ -3,11 +3,13 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+import logging
+
 import tqdm
 
 import onegan.losses as losses
 from onegan.utils import to_var
-from onegan.extension import History, Logger, Checkpoint, GANCheckpoint
+from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
 
 
 class Estimator:
@@ -18,8 +20,10 @@ class Estimator:
         self.metric = metric
         self.name = name
 
-        self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
-        self.logger = Logger(name=name, max_num_images=kwargs.get('max_num_images', 30))
+        # TODO: make these extensions optional
+        if self.name:
+            self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
+            self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
     def run(self, train_loader, validate_loader, epochs):
         for epoch in range(epochs):
@@ -35,6 +39,74 @@ class Estimator:
         self.saver.save(self, epoch)
 
 
+class OneEstimator:
+
+    def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, name=None):
+        self.model = model
+        self.optimizer = optimizer
+        self.saver = saver
+        self.logger = logger
+        self.lr_scheduler = lr_scheduler
+        self.history = History()
+        self.state = {}
+        self._log = logging.getLogger(f'OneGAN.{name}')
+        self._log.info(f'OneEstimator<{name}> is initialized')
+
+    def run(self, train_loader, validate_loader, update_fn, inference_fn, epochs):
+        for epoch in range(epochs):
+            self.state['epoch'] = epoch
+
+            self.train(train_loader, update_fn)
+            self.logger.scalar(self.history.metric(), epoch)
+
+            self.evaluate(validate_loader, inference_fn)
+            self.logger.scalar(self.history.metric(), epoch)
+
+            self.save_checkpoint()
+            self.adjust_learning_rate(self.history['loss/loss_val'])
+            self._log.info(f'OneEstimator<{self.name}> epoch#{epoch} end')
+
+    def save_checkpoint(self):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.save(self, self.state['epoch'])
+        self._log.info(f'OneEstimator<{self.name}> save checkpoint at epoch#{self.state["epoch"]}')
+
+    def adjust_learning_rate(self, monitor_val):
+        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
+            return
+        self.lr_scheduler.step(monitor_val)
+        self._log.info(f'OneEstimator<{self.name}> adjust learning rate at epoch#{self.state["epoch"]}')
+
+    def train(self, data_loader, update_fn):
+        self.model.train()
+        self.history.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+
+        for data in progress:
+            loss, accuracy = update_fn(self.model, data)
+            progress.set_postfix(self.history.add({**loss, **accuracy}))
+            self.optimizer.zero_grad()
+            loss['loss/loss'].backward()
+            self.optimizer.step()
+        return self.history.metric()
+
+    def evaluate(self, data_loader, inference_fn):
+        self.model.eval()
+        self.history.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description('Evaluate')
+
+        for data in progress:
+            log_values = inference_fn(self.model, data)
+            loss, accuracy = log_values if isinstance(log_values, tuple) else (log_values, {})
+            progress.set_postfix(self.history.add({**loss, **accuracy}, log_suffix='_val'))
+        return self.history.metric()
+
+
 class OneGANEstimator(Estimator):
 
     def __init__(self, model, optimizer, metric, name, **kwargs):
@@ -44,7 +116,7 @@ class OneGANEstimator(Estimator):
         self.name = name
 
         self.saver = GANCheckpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
-        self.logger = Logger(name=name, max_num_images=kwargs.get('max_num_images', 30))
+        self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
         self.build_criterion()
 
