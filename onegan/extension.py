@@ -5,12 +5,14 @@
 
 import os
 from collections import defaultdict
+from pathlib import Path
 
+import scipy.misc
+import tensorboardX
 import torch
 from torch.autograd import Variable
-import tensorboardX
 
-from onegan.utils import unique_experiment_name, img_normalize
+from onegan.utils import img_normalize, unique_experiment_name, export_checkpoint_weight
 
 
 def check_state(f):
@@ -37,7 +39,7 @@ class Extension:
     pass
 
 
-class Logger(Extension):
+class TensorBoardLogger(Extension):
 
     def __init__(self, logdir='logs', name='default', max_num_images=20):
         self.logdir = unique_experiment_name(logdir, name)
@@ -51,6 +53,12 @@ class Logger(Extension):
     @check_state
     @check_num_images
     def image(self, kw_images, epoch, prefix):
+        '''
+            Args:
+                kw_images: 4-D tensor [batch, channel, height, width]
+                epoch: step for TensorBoard logging
+                prefix: prefix string for tag
+        '''
         [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}', img_normalize(image), epoch)
          for tag, images in kw_images.items()
          for i, image in enumerate(images)]
@@ -64,6 +72,29 @@ class Logger(Extension):
         if not hasattr(self, '_writer'):
             self._writer = tensorboardX.SummaryWriter(self.logdir)
         return self._writer
+
+
+class ImageSaver(Exception):
+
+    def __init__(self, savedir='output/results/', name='default'):
+        self.name = name
+        self.savedir = unique_experiment_name(savedir, name)
+        self._create_folder()
+
+    def _create_folder(self):
+        os.makedirs(self.savedir, exist_ok=True)
+
+    def image(self, img_tensors, filenames):
+        '''
+            Args:
+                img_tensors: batched tensor [batch, (channel,) height, width]
+        '''
+        if img_tensors.dim() == 4:
+            img_tensors = img_tensors.permute(0, 2, 3, 1)
+
+        for fname, img in zip(filenames, img_tensors):
+            path = os.path.join(self.savedir, fname)
+            scipy.misc.imsave(path, img.cpu().numpy())
 
 
 class History(Extension):
@@ -84,10 +115,26 @@ class History(Extension):
     def metric(self):
         return {name: val / self.count for name, val in self.meters.items()}
 
+    def clear(self):
+        self.count = 0
+        self.meters = defaultdict(float)
+
+
+class WeightSearcher(Extension):
+
+    def __init__(self, weight_path):
+        self.weight_path = Path(weight_path)
+
+    def get_weight(self):
+        if self.weight_path.is_file():
+            yield export_checkpoint_weight(self.weight_path, remove_module=False), self.weight_path
+        for weight_path in self.weight_path.glob('*.pth'):
+            yield export_checkpoint_weight(weight_path, remove_module=False), weight_path
+
 
 class Checkpoint(Extension):
 
-    def __init__(self, savedir='output/checkpoint/', name='default', save_epochs=20):
+    def __init__(self, savedir='output/checkpoints/', name='default', save_epochs=20):
         self.root_savedir = savedir
         self.name = name
         self.save_epochs = save_epochs
@@ -100,14 +147,14 @@ class Checkpoint(Extension):
         return self._savedir
 
     def load(self, trainer, net_path=None, resume=False):
-        epoch = self._load(net_path, trainer.model, trainer.optim)
+        epoch = self._load(net_path, trainer.model, trainer.optimizer)
         if resume:
             trainer.start_epoch = epoch
 
     def save(self, trainer, epoch):
         if (epoch + 1) % self.save_epochs:
             return
-        self._save(f'net-{epoch}.pth', trainer.model, trainer.optim, epoch)
+        self._save(f'net-{epoch}.pth', trainer.model, trainer.optimizer, epoch)
 
     def _load(self, path, model, optim):
         if not path:

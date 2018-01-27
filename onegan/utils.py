@@ -71,7 +71,7 @@ def save_batched_images(img_tensors, folder=None, filenames=None):
 
     for fname, img in zip(filenames, img_tensors):
         path = os.path.join(folder, fname)
-        scipy.misc.imsave(path, img_normalize(img).cpu().numpy())
+        scipy.misc.imsave(path, img.cpu().numpy())
 
 
 def export_checkpoint_weight(checkpoint_path, remove_module=True):
