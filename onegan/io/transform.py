@@ -17,11 +17,12 @@ class SegmentationPair():
     def __init__(self,
                  target_size=None,
                  final_transform=False,
-                 random_flip=False, random_crop=False):
+                 random_flip=False, random_crop=False, color_jiiter=False):
         self.target_size = target_size
         self.final_transform = final_transform
         self.random_flip = random_flip
         self.random_crop = random_crop
+        self.color_jiiter = color_jiiter
 
     def __call__(self, image, segmentation, random=False) -> tuple:
         image = image.convert('RGB')
@@ -38,7 +39,7 @@ class SegmentationPair():
     def _transform(self, image, segmentation) -> tuple:
         if self.final_transform:
             image = T.Normalize(mean=[.5, .5, .5], std=[.5, .5, .5])(F.to_tensor(image))
-            segmentation = torch.from_numpy(np.array(segmentation)).long()
+            segmentation = torch.from_numpy(np.array(segmentation) - 1).long()  # make 0 into 255 as ignore index
         return image, segmentation
 
     def tf_random_flip(self, image, segment):
