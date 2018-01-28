@@ -47,6 +47,8 @@ class OneEstimator:
         self.saver = saver
         self.logger = logger
         self.lr_scheduler = lr_scheduler
+        self.name = name
+
         self.history = History()
         self.state = {}
         self._log = logging.getLogger(f'OneGAN.{name}')
@@ -63,20 +65,23 @@ class OneEstimator:
             self.logger.scalar(self.history.metric(), epoch)
 
             self.save_checkpoint()
-            self.adjust_learning_rate(self.history['loss/loss_val'])
+            self.adjust_learning_rate(self.history.metric()['loss/loss_val'])
             self._log.info(f'OneEstimator<{self.name}> epoch#{epoch} end')
+
+    def load_checkpoint(self, weight_path, resume=False):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.load(self, weight_path, resume)
 
     def save_checkpoint(self):
         if not hasattr(self, 'saver') or self.saver is None:
             return
         self.saver.save(self, self.state['epoch'])
-        self._log.info(f'OneEstimator<{self.name}> save checkpoint at epoch#{self.state["epoch"]}')
 
     def adjust_learning_rate(self, monitor_val):
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
             return
         self.lr_scheduler.step(monitor_val)
-        self._log.info(f'OneEstimator<{self.name}> adjust learning rate at epoch#{self.state["epoch"]}')
 
     def train(self, data_loader, update_fn):
         self.model.train()

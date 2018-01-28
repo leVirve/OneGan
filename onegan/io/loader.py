@@ -6,6 +6,7 @@
 
 import os
 import glob
+import logging
 
 import torch
 from PIL import Image
@@ -31,6 +32,12 @@ class BaseDataset(torch.utils.data.Dataset):
     def __init__(self, phase):
         self.phase = phase
 
+    @property
+    def _log(self):
+        if not hasattr(self, '_logger'):
+            self._logger = logging.getLogger(type(self).__name__)
+        return self._logger
+
     def _split_data(self, files, phase, debug=False):
         if debug:
             num_split = int(len(files) * 0.1)
@@ -39,10 +46,14 @@ class BaseDataset(torch.utils.data.Dataset):
         files = files[:num_split] if phase == 'train' else files[num_split:]
         return files
 
-    def to_loader(self, pin_memory=True, **kwargs):
+    def to_loader(self, pin_memory=True, args=None, **kwargs):
         shuffle = self.phase == 'train'
+        if args is None:
+            return torch.utils.data.DataLoader(
+                self, shuffle=shuffle, pin_memory=pin_memory, **kwargs)
         return torch.utils.data.DataLoader(
-            self, shuffle=shuffle, pin_memory=pin_memory, **kwargs)
+            self, shuffle=shuffle, pin_memory=pin_memory,
+            batch_size=args.batch_size, num_workers=args.worker, **kwargs)
 
 
 class SourceToTargetDataset(BaseDataset):

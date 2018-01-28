@@ -5,12 +5,12 @@
 
 import os
 import time
-import uuid
 from collections import OrderedDict
+from datetime import datetime
 from functools import wraps
 
-import torch
 import scipy.misc
+import torch
 from torch.autograd import Variable
 
 cuda_available = torch.cuda.is_available()
@@ -29,16 +29,32 @@ def to_var(x, **kwargs):
     return var
 
 
+def to_numpy(x):
+    if is_tensor(x):
+        return x.cpu().numpy()
+    if is_variable(x):
+        return x.data.cpu().numpy()
+    return x
+
+
 def set_device_mode(device='gpu'):
     assert device in ('cpu', 'gpu')
     global cuda_available
     cuda_available = device == 'gpu'
 
 
+def is_tensor(x):
+    return 'Tensor' in str(type(x))
+
+
+def is_variable(x):
+    return 'variable' in str(type(x))
+
+
 def unique_experiment_name(root, name):
     target_path = os.path.join(root, name)
     if os.path.exists(target_path):
-        name = f'{name}_' + uuid.uuid4().hex[:6]
+        name = f'{name}_' + datetime.now().strftime('%m-%dT%H-%M')
 
     _name = globals().get('experiment_name')
     if _name is None or _name[:-6] != name:
