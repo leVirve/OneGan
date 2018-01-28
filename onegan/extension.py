@@ -7,12 +7,14 @@ import os
 from collections import defaultdict
 from pathlib import Path
 
+import numpy as np
 import scipy.misc
 import tensorboardX
 import torch
 from torch.autograd import Variable
 
-from onegan.utils import img_normalize, unique_experiment_name, export_checkpoint_weight
+from onegan.utils import (export_checkpoint_weight, img_normalize,
+                          unique_experiment_name)
 
 
 def check_state(f):
@@ -146,24 +148,27 @@ class Checkpoint(Extension):
             os.makedirs(self._savedir, exist_ok=True)
         return self._savedir
 
+    def apply(weight_path, model):
+        state_dict = export_checkpoint_weight(weight_path, remove_module=False)
+        model.load_state_dict(state_dict)
+
     def load(self, trainer, net_path=None, resume=False):
-        epoch = self._load(net_path, trainer.model, trainer.optimizer)
+        ckpt = self._load(net_path)
+        assert ckpt['arch'] == trainer.model.__class__.__name__
+        trainer.model.load_state_dict(ckpt['model'])
         if resume:
-            trainer.start_epoch = epoch
+            trainer.optimizer.load_state_dict(ckpt['optimizer'])
+            return ckpt['epoch']
 
     def save(self, trainer, epoch):
         if (epoch + 1) % self.save_epochs:
             return
         self._save(f'net-{epoch}.pth', trainer.model, trainer.optimizer, epoch)
 
-    def _load(self, path, model, optim):
+    def _load(self, path):
         if not path:
             return None
-        ckpt = torch.load(path)
-        assert ckpt['arch'] == model.__class__.__name__
-        model.load_state_dict(ckpt['model'])
-        optim.load_state_dict(ckpt['optimizer'])
-        return ckpt['epoch']
+        return torch.load(path)
 
     def _save(self, name, model, optim, epoch):
         path = os.path.join(self.savedir, name)
