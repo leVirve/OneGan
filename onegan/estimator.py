@@ -112,7 +112,100 @@ class OneEstimator:
         return self.history.metric()
 
 
-class OneGANEstimator(Estimator):
+class OneGANEstimator:
+
+    def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, name=None):
+        self.model_g, self.model_d = model
+        self.optim_g, self.optim_d = optimizer
+        self.saver = saver
+        self.logger = logger
+        self.sched_g, self.sched_d = lr_scheduler
+        self.name = name
+
+        self.history = History()
+        self.state = {}
+        self._log = logging.getLogger(f'OneGAN.{name}')
+        self._log.info(f'OneGANEstimator<{name}> is initialized')
+
+    def run(self, train_loader, validate_loader, update_fn, inference_fn, epochs):
+        for epoch in range(epochs):
+            self.state['epoch'] = epoch
+
+            self.train(train_loader, update_fn)
+            self.logger.scalar(self.history.metric(), epoch)
+
+            self.evaluate(validate_loader, inference_fn)
+            self.logger.scalar(self.history.metric(), epoch)
+
+            self.save_checkpoint()
+            self.adjust_learning_rate(('loss/loss_g_val', 'loss/loss_d_val'))
+            self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
+
+    def load_checkpoint(self, weight_path, resume=False):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.load(self, weight_path, resume)
+
+    def save_checkpoint(self):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.save(self, self.state['epoch'])
+
+    def adjust_learning_rate(self, monitor_vals):
+        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
+            return
+        try:
+            self.sched_g.step(self.history[monitor_vals[0]])
+            self.sched_d.step(self.history[monitor_vals[1]])
+        except TypeError:
+            pass
+        else:
+            self.sched_g.step()
+            self.sched_d.step()
+
+    def train(self, data_loader, update_fn):
+        self.model_g.train()
+        self.model_d.train()
+        self.history.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+
+        for data in progress:
+            staged_closure = update_fn(self.model_g, self.model_d, data)
+
+            self.optim_d.zero_grad()
+            loss_d = next(staged_closure)
+            loss_d['loss/loss_d'].backward()
+            self.optim_d.step()
+
+            self.optim_g.zero_grad()
+            loss_g = next(staged_closure)
+            loss_g['loss/loss_g'].backward()
+            self.optim_g.step()
+
+            accuracy = next(staged_closure)
+            progress.set_postfix(self.history.add({**loss_d, **loss_g, **accuracy}))
+            next(staged_closure)
+        return self.history.metric()
+
+    def evaluate(self, data_loader, inference_fn):
+        self.model_g.eval()
+        self.model_d.eval()
+        self.history.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description('Evaluate')
+
+        for data in progress:
+            staged_closure = inference_fn(self.model_g, self.model_d, data)
+            loss_d, loss_g, accuracy, _ = [r for r in staged_closure]
+
+            progress.set_postfix(self.history.add({**loss_d, **loss_g, **accuracy}, log_suffix='_val'))
+        return self.history.metric()
+
+
+class OneGANReadyEstimator(Estimator):
 
     def __init__(self, model, optimizer, metric, name, **kwargs):
         self.gnet, self.dnet = model
@@ -193,7 +286,7 @@ class OneGANEstimator(Estimator):
         self.logger.scalar(history.metric(), epoch)
 
 
-class OneWGANEstimator(OneGANEstimator):
+class OneWGANReadyEstimator(OneGANEstimator):
 
     def __init__(self, model, optimizer, metric, saver, name):
         super().__init__(model, optimizer)

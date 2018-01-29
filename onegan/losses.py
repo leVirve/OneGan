@@ -8,7 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable, grad
 
-from onegan.utils import to_var, to_device
+from onegan.utils import to_device
 
 
 def l1_loss(x, y):
@@ -19,7 +19,7 @@ def adversarial_ce_loss(x, value: float):
     ''' x: output tensor of discriminator
         value: float
     '''
-    label = to_var(torch.FloatTensor(x.size()).fill_(value), requires_grad=False)
+    label = torch.zeros_like(x).fill_(value)
     return nn.functional.binary_cross_entropy(x, label)
 
 
@@ -27,7 +27,7 @@ def adversarial_ls_loss(x, value: float):
     ''' x: output tensor of discriminator
         value: float
     '''
-    label = to_var(torch.FloatTensor(x.size()).fill_(value), requires_grad=False)
+    label = torch.zeros_like(x).fill_(value)
     return nn.functional.mse_loss(x, label)
 
 

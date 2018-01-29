@@ -30,7 +30,7 @@ def to_var(x, **kwargs):
 
 
 def to_numpy(x):
-    if is_tensor(x):
+    if torch.is_tensor(x):
         return x.cpu().numpy()
     if is_variable(x):
         return x.data.cpu().numpy()
@@ -41,10 +41,6 @@ def set_device_mode(device='gpu'):
     assert device in ('cpu', 'gpu')
     global cuda_available
     cuda_available = device == 'gpu'
-
-
-def is_tensor(x):
-    return 'Tensor' in str(type(x))
 
 
 def is_variable(x):

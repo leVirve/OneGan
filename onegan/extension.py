@@ -191,9 +191,8 @@ class GANCheckpoint(Checkpoint):
     def save(self, trainer, epoch):
         if (epoch + 1) % self.save_epochs:
             return
-        name = '%%s-%d.pth' % (epoch)
-        self._save(name % 'dnet', trainer.dnet, trainer.d_optim, epoch)
-        self._save(name % 'gnet', trainer.gnet, trainer.g_optim, epoch)
+        self._save('dnet-{epoch}.pth', trainer.model_d, trainer.optim_d, epoch)
+        self._save('gnet-{epoch}.pth', trainer.model_g, trainer.optim_g, epoch)
 
 
 class Colorizer(Extension):
