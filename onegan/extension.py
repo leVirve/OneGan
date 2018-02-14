@@ -95,7 +95,9 @@ class ImageSaver(Exception):
             img_tensors = img_tensors.permute(0, 2, 3, 1)
 
         for fname, img in zip(filenames, img_tensors):
-            path = os.path.join(self.savedir, fname)
+            name, ext = os.path.splitext(fname)
+            ext = '.png' if ext not in ['.png', '.jpg'] else ext
+            path = os.path.join(self.savedir, name + ext)
             scipy.misc.imsave(path, img.cpu().numpy())
 
 
@@ -115,6 +117,7 @@ class History(Extension):
         return display
 
     def metric(self):
+        # TODO: fix bug, should be moving average?!
         return {name: val / self.count for name, val in self.meters.items()}
 
     def clear(self):
@@ -148,7 +151,7 @@ class Checkpoint(Extension):
             os.makedirs(self._savedir, exist_ok=True)
         return self._savedir
 
-    def apply(weight_path, model):
+    def apply(self, weight_path, model):
         state_dict = export_checkpoint_weight(weight_path, remove_module=False)
         model.load_state_dict(state_dict)
 
@@ -174,7 +177,7 @@ class Checkpoint(Extension):
         path = os.path.join(self.savedir, name)
         torch.save({
             'model': model.state_dict(),
-            'optimizer': optim.state_dict(),
+            'optimizer': optim.state_dict() if optim is not None else None,
             'epoch': epoch + 1,
             'arch': model.__class__.__name__
         }, path)
