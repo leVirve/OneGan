@@ -54,3 +54,50 @@ class SegmentationPair():
             image = F.crop(image, i, j, h, w)
             segment = F.crop(segment, i, j, h, w)
         return image, segment
+
+
+class TransformPipeline:
+
+    def __init__(self, target_size=None, color_jiiter=None):
+        self.target_size = target_size
+        self.color_jitter = color_jiiter or \
+            T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
+        self.totensor_normalize = T.Compose([
+            T.ToTensor(),
+            T.Normalize(mean=[.5, .5, .5], std=[.5, .5, .5]),
+        ])
+
+    def new_random_state(self):
+        self.random = random.random() > 0.5
+        self.random_angle = np.random.uniform(-5, 5)
+
+    def _transform(self, x, transform_fn):
+        if not self.random():
+            return
+        return transform_fn(x)
+
+    def load_image(self, path):
+        return Image.open(path)
+
+    def resize(self, x, mode='bilinear'):
+        interpolation = {
+            'nearest': Image.NEAREST,
+            'bilinear': Image.BILINEAR,
+            'bicubic': Image.BICUBIC,
+        }[mode]
+        return T.functional.resize(x, self.target_size, interpolation)
+
+    def colorjiiter(self, x):
+        return self.color_jitter(x)
+
+    def fliplr(self, x, func=None):
+        if func:
+            fn = func
+        elif 'numpy' in type(x):
+            fn = np.fliplr
+        elif isinstance(x, Image):
+            fn = T.functional.hflip
+        return self._transform(x, fn)
+
+    def rotate(self, x):
+        return self._transform(x, lambda x: T.functional.rotate(x, self.random_angle))

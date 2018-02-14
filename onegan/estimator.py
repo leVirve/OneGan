@@ -115,14 +115,17 @@ class OneEstimator:
 class OneGANEstimator:
 
     def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, name=None):
-        self.model_g, self.model_d = model
-        self.optim_g, self.optim_d = optimizer
+        self.models = model
+        self.schedulers = lr_scheduler
+        self.model_g, self.model_d = model if len(model) == 2 else (None, None)
+        self.optim_g, self.optim_d = optimizer if optimizer else (None, None)
         self.saver = saver
         self.logger = logger
-        self.sched_g, self.sched_d = lr_scheduler
+        self.sched_g, self.sched_d = lr_scheduler if len(lr_scheduler) == 2 else (None, None)
         self.name = name
 
         self.history = History()
+        self.history_val = History()
         self.state = {}
         self._log = logging.getLogger(f'OneGAN.{name}')
         self._log.info(f'OneGANEstimator<{name}> is initialized')
@@ -155,13 +158,13 @@ class OneGANEstimator:
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
             return
         try:
-            self.sched_g.step(self.history[monitor_vals[0]])
-            self.sched_d.step(self.history[monitor_vals[1]])
-        except TypeError:
+            for sched, monitor_val in zip(self.schedulers, monitor_vals):
+                sched.step(self.history[monitor_val])
+        except:
             pass
         else:
-            self.sched_g.step()
-            self.sched_d.step()
+            for sched in self.schedulers:
+                sched.step()
 
     def train(self, data_loader, update_fn):
         self.model_g.train()
@@ -203,6 +206,53 @@ class OneGANEstimator:
 
             progress.set_postfix(self.history.add({**loss_d, **loss_g, **accuracy}, log_suffix='_val'))
         return self.history.metric()
+
+    def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
+        for epoch in range(epochs):
+            self.state['epoch'] = epoch
+            self.dummy_train(train_loader, update_fn)
+            self.dummy_evaluate(validate_loader, inference_fn)
+            epoch_fn(epoch)
+            self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
+
+    def dummy_train(self, data_loader, update_fn):
+        [m.train() for m in self.models]
+        self.history.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+
+        for data in progress:
+            stat = {}
+            for staged_closure in update_fn(self.models, data):
+                if isinstance(staged_closure, tuple):
+                    loss, (optim, key_loss) = staged_closure
+                    optim.zero_grad()
+                    loss[key_loss].backward()
+                    optim.step()
+                    stat.update(loss)
+                elif isinstance(staged_closure, dict):
+                    accuracy = staged_closure
+                    stat.update(accuracy)
+            progress.set_postfix(self.history.add(stat))
+
+    def dummy_evaluate(self, data_loader, update_fn):
+        [m.eval() for m in self.models]
+        self.history_val.clear()
+
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+
+        for data in progress:
+            stat = {}
+            for staged_closure in update_fn(self.models, data):
+                if isinstance(staged_closure, tuple):
+                    loss, _ = staged_closure
+                    stat.update(loss)
+                elif isinstance(staged_closure, dict):
+                    accuracy = staged_closure
+                    stat.update(accuracy)
+            progress.set_postfix(self.history_val.add(stat, log_suffix='_val'))
 
 
 class OneGANReadyEstimator(Estimator):
