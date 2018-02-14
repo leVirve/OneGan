@@ -4,12 +4,28 @@ OneGAN
 .. image:: https://travis-ci.com/leVirve/OneGAN.svg?token=6EpaKFxfJsjbzMkoLpeL&branch=master
     :target: https://travis-ci.com/leVirve/OneGAN
 
-**Oh, GAN! Here's another deep learning wrapper for PyTorch.**
+**Oh, GAN! One more freaking GAN i'll be sick.**
+Here's yet another PyTorch framework for GAN and plain network.
 
-One more freaking GAN i'll be sick.
+Features
+==========
+
+- Out-of-the-box trainers/estimators, ``don't do it yourself``
+- Performance measurement for semantic segmentation and image assessment
+- Extenstions for the storage of intermediate/result images and checkpoints
+- Visualization extension for ``TensorBoard``
+
 
 Prerequsite
+=============
+
+- ``PyTorch`` >= 0.3
+- ``torchvision`` >= 0.2
+
+
+Installation
 ==============
 
-- ``PyToch`` >= 0.3
-- ``torchvision`` >= 0.2
+.. code:: bash
+
+  python setup.py install
