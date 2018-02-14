@@ -116,6 +116,9 @@ class History(Extension):
         self.count += n
         return display
 
+    def get(self, key):
+        return self.metric()[key]
+
     def metric(self):
         # TODO: fix bug, should be moving average?!
         return {name: val / self.count for name, val in self.meters.items()}
@@ -130,11 +133,23 @@ class WeightSearcher(Extension):
     def __init__(self, weight_path):
         self.weight_path = Path(weight_path)
 
-    def get_weight(self):
+    def _load_weight(self, path):
+        return export_checkpoint_weight(path, remove_module=False)
+
+    def get_weight(self, model=None):
+
+        def _yield_weight(path):
+            weight = self._load_weight(path)
+            if model is not None:
+                model.load_state_dict(weight)
+                yield model, path
+            yield weight, path
+
         if self.weight_path.is_file():
-            yield export_checkpoint_weight(self.weight_path, remove_module=False), self.weight_path
+            return _yield_weight(self.weight_path)
+
         for weight_path in self.weight_path.glob('*.pth'):
-            yield export_checkpoint_weight(weight_path, remove_module=False), weight_path
+            return _yield_weight(weight_path)
 
 
 class Checkpoint(Extension):

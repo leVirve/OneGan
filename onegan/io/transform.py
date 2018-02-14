@@ -72,8 +72,8 @@ class TransformPipeline:
         self.random_angle = np.random.uniform(-5, 5)
 
     def _transform(self, x, transform_fn):
-        if not self.random():
-            return
+        if not self.random:
+            return x
         return transform_fn(x)
 
     def load_image(self, path):
@@ -93,9 +93,9 @@ class TransformPipeline:
     def fliplr(self, x, func=None):
         if func:
             fn = func
-        elif 'numpy' in type(x):
+        elif 'numpy' == type(x).__module__:
             fn = np.fliplr
-        elif isinstance(x, Image):
+        elif isinstance(x, Image.Image):
             fn = T.functional.hflip
         return self._transform(x, fn)
 

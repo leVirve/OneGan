@@ -111,6 +111,47 @@ class OneEstimator:
             progress.set_postfix(self.history.add({**loss, **accuracy}, log_suffix='_val'))
         return self.history.metric()
 
+    def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
+        for epoch in range(epochs):
+            self.history.clear()
+            self.state['epoch'] = epoch
+            self.dummy_train(train_loader, update_fn)
+            self.dummy_evaluate(validate_loader, inference_fn)
+
+            if isinstance(epoch_fn, list):
+                for fn in epoch_fn:
+                    fn(epoch, self.history)
+            elif callable(epoch_fn):
+                epoch_fn(epoch, self.history)
+
+            self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
+
+    def dummy_train(self, data_loader, update_fn):
+        self.model.train()
+        progress = tqdm.tqdm(data_loader)
+        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+
+        for data in progress:
+            _stat = update_fn(self.model, data)
+            loss, stat = _stat if len(_stat) == 2 else (_stat, {})
+            self.optimizer.zero_grad()
+            loss.backward()
+            self.optimizer.step()
+            progress.set_postfix(self.history.add(stat))
+
+    def dummy_evaluate(self, data_loader, inference_fn):
+        self.model.eval()
+        progress = tqdm.tqdm(data_loader)
+        for data in progress:
+            _stat = inference_fn(self.model, data)
+            if len(_stat) == 2:
+                _, stat = _stat
+            elif isinstance(_stat, dict):
+                stat = _stat
+            else:
+                stat = {}
+            progress.set_postfix(self.history.add(stat, log_suffix='_val'))
+
 
 class OneGANEstimator:
 
@@ -160,9 +201,7 @@ class OneGANEstimator:
         try:
             for sched, monitor_val in zip(self.schedulers, monitor_vals):
                 sched.step(self.history[monitor_val])
-        except:
-            pass
-        else:
+        except Exception:
             for sched in self.schedulers:
                 sched.step()
 
