@@ -143,7 +143,8 @@ class WeightSearcher(Extension):
             if model is not None:
                 model.load_state_dict(weight)
                 yield model, path
-            yield weight, path
+            else:
+                yield weight, path
 
         if self.weight_path.is_file():
             return _yield_weight(self.weight_path)
