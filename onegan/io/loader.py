@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Salas Lin (leVirve)
+# Copyright (c) 2017-present Salas Lin (leVirve)
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
@@ -15,8 +15,10 @@ from torchvision.datasets.folder import is_image_file
 
 __all__ = [
     'BaseDataset', 'SourceToTargetDataset',
-    'load_image', 'collect_images'
+    'load_image', 'collect_images', 'universal_collate_fn'
 ]
+
+default_collate = torch.utils.data.dataloader.default_collate
 
 
 def load_image(path):
@@ -27,13 +29,32 @@ def collect_images(path):
     return sorted([e for e in glob.glob(os.path.join(path, '*.*')) if is_image_file(e)])
 
 
+def universal_collate_fn(batch):
+
+    def _collate(data):
+        try:
+            return default_collate(data)
+        except RuntimeError:
+            return data
+
+    return {key: _collate([d[key] for d in batch]) for key in batch[0]}
+
+
 class BaseDataset(torch.utils.data.Dataset):
 
-    def __init__(self, phase):
+    def __init__(self, phase, args=None):
+        """ Base dataset with to_loader method
+
+        Args:
+            phase (str): should be `train` or `val` to indicate the phase
+            args (argparse.Namespace): parsed arguments from onegan.option.Parser
+        """
         self.phase = phase
+        self.args = args
 
     @property
-    def _log(self):
+    def logger(self):
+        """ :Logger: logger for specific succeeding class """
         if not hasattr(self, '_logger'):
             self._logger = logging.getLogger(type(self).__name__)
         return self._logger
@@ -46,14 +67,23 @@ class BaseDataset(torch.utils.data.Dataset):
         files = files[:num_split] if phase == 'train' else files[num_split:]
         return files
 
-    def to_loader(self, pin_memory=True, args=None, **kwargs):
-        shuffle = self.phase == 'train'
-        if args is None:
-            return torch.utils.data.DataLoader(
-                self, shuffle=shuffle, pin_memory=pin_memory, **kwargs)
-        return torch.utils.data.DataLoader(
-            self, shuffle=shuffle, pin_memory=pin_memory,
-            batch_size=args.batch_size, num_workers=args.worker, **kwargs)
+    def to_loader(self, **kwargs):
+        """ Dispatch method for torch.utils.data.DataLoader
+
+        Args:
+            **kwargs: args for DataLoader()
+        """
+
+        # default settings
+        params = {
+            'pin_memory': True,
+            'shuffle': self.phase == 'train',
+            'batch_size': self.args.batch_size if self.args else 0,
+            'num_workers': self.args.worker if self.args else 0,
+        }
+        params.update(kwargs)
+
+        return torch.utils.data.DataLoader(self, **params)
 
 
 class SourceToTargetDataset(BaseDataset):
