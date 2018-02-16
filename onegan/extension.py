@@ -135,31 +135,6 @@ class History(Extension):
         self.meters = defaultdict(float)
 
 
-class WeightSearcher(Extension):
-
-    def __init__(self, weight_path):
-        self.weight_path = Path(weight_path)
-
-    def _load_weight(self, path):
-        return export_checkpoint_weight(path, remove_module=False)
-
-    def get_weight(self, model=None):
-
-        def _yield_weight(path):
-            weight = self._load_weight(path)
-            if model is not None:
-                model.load_state_dict(weight)
-                yield model, path
-            else:
-                yield weight, path
-
-        if self.weight_path.is_file():
-            return _yield_weight(self.weight_path)
-
-        for weight_path in self.weight_path.glob('*.pth'):
-            return _yield_weight(weight_path)
-
-
 class Checkpoint(Extension):
 
     def __init__(self, savedir='output/checkpoints/', name='default', save_epochs=20):
@@ -179,11 +154,6 @@ class Checkpoint(Extension):
             return self.savedir
         return Path(self.savedir) / self.name
 
-    @staticmethod
-    def apply(weight_path, model, remove_module=False):
-        state_dict = export_checkpoint_weight(weight_path, remove_module)
-        model.load_state_dict(state_dict)
-
     def load_trained_model(self, weight_path, remove_module=False):
         """ another loader method for `model`
 
@@ -200,12 +170,14 @@ class Checkpoint(Extension):
 
         ckpt = torch.load(folder / 'latest.pt')
         full_model = ckpt['model']
-        state_dict = export_checkpoint_weight(weight_path, remove_module)
-        full_model.load_state_dict(state_dict)
+
+        if 'latest.pt' not in weight_path:
+            state_dict = export_checkpoint_weight(weight_path, remove_module)
+            full_model.load_state_dict(state_dict)
 
         return full_model
 
-    def load(self, path=None, model=None, resume=False, remove_module=False):
+    def load(self, path=None, model=None, remove_module=False, resume=False):
         """ load method for `model` and `optimizor`
 
         If `resume` is True, full `model` and `optimizer` modules will be returned;
@@ -214,11 +186,12 @@ class Checkpoint(Extension):
         Args:
             path (str): full path to the dumped weight or full module
             model (nn.Module)
-            resume (bool)
             remove_module (bool)
+            resume (bool)
 
         Return:
             - dict() of dumped data inside `latest.pt`
+            - OrderedDict() of `state_dict`
             - nn.Module of input model with loaded state_dict
             - nn.Module of dumped full module with loaded state_dict
         """
@@ -228,6 +201,8 @@ class Checkpoint(Extension):
 
         try:
             state_dict = export_checkpoint_weight(path, remove_module)
+            if model is None:
+                return state_dict
             model.load_state_dict(state_dict)
             return model
         except KeyError:
@@ -252,6 +227,32 @@ class Checkpoint(Extension):
             'optimizer': optimizer,
             'epoch': epoch + 1
         }, folder / 'latest.pt')
+
+    def get_weights(self, weight_path, model=None, remove_module=False):
+        """ model weights searcher
+
+        Args:
+            weight_path (str): the path to single weight file or the folder of weights
+            model (nn.Module)
+        """
+
+        weight_path = Path(weight_path)
+        if weight_path.is_file():
+            path = str(weight_path)
+            payload = self.load(path, model=model, remove_module=remove_module)
+            yield payload, path
+
+        paths = list(weight_path.glob('*.pt'))
+        if weight_path.is_dir():
+            assert len(paths), 'Weights folder contains nothing.'
+
+        for path in paths:
+            path = str(path)
+            if 'latest.pt' in path:
+                continue
+            payload = self.load(path, model=model, remove_module=remove_module)
+            model = payload  # use corrected model_def
+            yield payload, path
 
 
 class GANCheckpoint(Checkpoint):
