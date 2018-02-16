@@ -4,6 +4,7 @@
 # https://opensource.org/licenses/MIT
 
 import os
+import logging
 from collections import defaultdict
 from pathlib import Path
 
@@ -38,7 +39,13 @@ def check_num_images(f):
 
 
 class Extension:
-    pass
+
+    @property
+    def logger(self):
+        """ :Logger: logger for specific succeeding class """
+        if not hasattr(self, '_logger'):
+            self._logger = logging.getLogger(type(self).__name__)
+        return self._logger
 
 
 class TensorBoardLogger(Extension):
@@ -165,38 +172,86 @@ class Checkpoint(Extension):
         if not hasattr(self, '_savedir'):
             self._savedir = unique_experiment_name(self.root_savedir, self.name)
             os.makedirs(self._savedir, exist_ok=True)
-        return self._savedir
+        return Path(self._savedir)
 
-    def apply(self, weight_path, model):
-        state_dict = export_checkpoint_weight(weight_path, remove_module=False)
+    def get_checkpoint_dir(self, unique=False):
+        if unique:
+            return self.savedir
+        return Path(self.savedir) / self.name
+
+    @staticmethod
+    def apply(weight_path, model, remove_module=False):
+        state_dict = export_checkpoint_weight(weight_path, remove_module)
         model.load_state_dict(state_dict)
 
-    def load(self, trainer, net_path=None, resume=False):
-        ckpt = self._load(net_path)
-        assert ckpt['arch'] == trainer.model.__class__.__name__
-        trainer.model.load_state_dict(ckpt['model'])
-        if resume:
-            trainer.optimizer.load_state_dict(ckpt['optimizer'])
-            return ckpt['epoch']
+    def load_trained_model(self, weight_path, remove_module=False):
+        """ another loader method for `model`
 
-    def save(self, trainer, epoch):
+        It can recover changed model module from dumped `latest.pt` and load
+        pre-trained weights.
+
+        Arge:
+            weight_path (str): full path or short weight name to the dumped weight
+            remove_module (bool)
+        """
+        folder = self.get_checkpoint_dir()
+        if str(folder) not in weight_path:
+            folder = Path(weight_path).parent
+
+        ckpt = torch.load(folder / 'latest.pt')
+        full_model = ckpt['model']
+        state_dict = export_checkpoint_weight(weight_path, remove_module)
+        full_model.load_state_dict(state_dict)
+
+        return full_model
+
+    def load(self, path=None, model=None, resume=False, remove_module=False):
+        """ load method for `model` and `optimizor`
+
+        If `resume` is True, full `model` and `optimizer` modules will be returned;
+        or the loaded model will be returned.
+
+        Args:
+            path (str): full path to the dumped weight or full module
+            model (nn.Module)
+            resume (bool)
+            remove_module (bool)
+
+        Return:
+            - dict() of dumped data inside `latest.pt`
+            - nn.Module of input model with loaded state_dict
+            - nn.Module of dumped full module with loaded state_dict
+        """
+        if resume:
+            latest_ckpt = torch.load(path)
+            return latest_ckpt
+
+        try:
+            state_dict = export_checkpoint_weight(path, remove_module)
+            model.load_state_dict(state_dict)
+            return model
+        except KeyError:
+            self.logger.warn('Use fallback solution: load `latest.pt` as module')
+            return self.load_trained_model(path, remove_module)
+
+    def save(self, model, optimizer, epoch):
+        """ save method for `model` and `optimizor`
+
+        Args:
+            model (nn.Module)
+            optimizer (nn.Module)
+            epoch (int): epoch step of training
+        """
         if (epoch + 1) % self.save_epochs:
             return
-        self._save(f'net-{epoch}.pth', trainer.model, trainer.optimizer, epoch)
 
-    def _load(self, path):
-        if not path:
-            return None
-        return torch.load(path)
-
-    def _save(self, name, model, optim, epoch):
-        path = os.path.join(self.savedir, name)
+        folder = self.get_checkpoint_dir(unique=True)
+        torch.save({'weight': model.state_dict()}, folder / f'net-{epoch}.pt')
         torch.save({
-            'model': model.state_dict(),
-            'optimizer': optim.state_dict() if optim is not None else None,
-            'epoch': epoch + 1,
-            'arch': model.__class__.__name__
-        }, path)
+            'model': model,
+            'optimizer': optimizer,
+            'epoch': epoch + 1
+        }, folder / 'latest.pt')
 
 
 class GANCheckpoint(Checkpoint):
