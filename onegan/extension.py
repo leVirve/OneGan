@@ -111,28 +111,32 @@ class ImageSaver(Exception):
 class History(Extension):
 
     def __init__(self):
-        self.count = 0
-        self.meters = defaultdict(float)
+        self.count = defaultdict(int)
+        self.meters = defaultdict(lambda: defaultdict(float))
 
     def add(self, kwvalues, n=1, log_suffix=''):
         display = {}
         for name, value in kwvalues.items():
             val = value.data[0] if isinstance(value, Variable) else value
-            self.meters[f'{name}{log_suffix}'] += val
+            self.meters[log_suffix][f'{name}{log_suffix}'] += val
             display[name] = f'{val:.03f}'
-        self.count += n
+        self.count[log_suffix] += n
         return display
 
     def get(self, key):
         return self.metric()[key]
 
     def metric(self):
-        # TODO: fix bug, should be moving average?!
-        return {name: val / self.count for name, val in self.meters.items()}
+        result = {}
+        for key in self.count.keys():
+            cnt = self.count[key]
+            out = {name: val / cnt for name, val in self.meters[key].items()}
+            result.update(out)
+        return result
 
     def clear(self):
-        self.count = 0
-        self.meters = defaultdict(float)
+        self.count = defaultdict(int)
+        self.meters = defaultdict(lambda: defaultdict(float))
 
 
 class Checkpoint(Extension):
