@@ -10,7 +10,7 @@ import logging
 
 import torch
 from PIL import Image
-from torchvision.datasets.folder import is_image_file
+from torchvision.datasets.folder import has_file_allowed_extension, IMG_EXTENSIONS
 
 
 __all__ = [
@@ -26,7 +26,9 @@ def load_image(path):
 
 
 def collect_images(path):
-    return sorted([e for e in glob.glob(os.path.join(path, '*.*')) if is_image_file(e)])
+    return sorted([
+        e for e in glob.glob(os.path.join(path, '*.*'))
+        if has_file_allowed_extension(e, IMG_EXTENSIONS)])
 
 
 def universal_collate_fn(batch):
