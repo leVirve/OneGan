@@ -27,7 +27,7 @@ setup(
     author_email='gae.m.project@gmail.com',
     license='MIT',
     platforms='any',
-    packages=['onegan'],
+    packages=['onegan', 'onegan.io', 'onegan.metrics', 'onegan.external'],
     zip_safe=False,
     keywords='GAN framework',
     install_requires=[
