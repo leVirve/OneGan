@@ -36,7 +36,7 @@ class Estimator:
     def save_checkpoint(self, epoch):
         if not hasattr(self, 'saver'):
             return
-        self.saver.save(self, epoch)
+        self.saver.save(self.model, self.optim, epoch)
 
 
 class OneEstimator:
@@ -76,7 +76,7 @@ class OneEstimator:
     def save_checkpoint(self):
         if not hasattr(self, 'saver') or self.saver is None:
             return
-        self.saver.save(self, self.state['epoch'])
+        self.saver.save(self.model, self.optimizer, self.state['epoch'])
 
     def adjust_learning_rate(self, monitor_val):
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
@@ -327,6 +327,16 @@ class OneGANReadyEstimator(Estimator):
         g_terms = {'g/recon': recon, 'g/adv': adv, 'g/loss': recon * self.recon_weight + adv}
         g_loss = g_terms['g/loss']
         return g_loss, g_terms
+
+    def run(self, train_loader, validate_loader, epochs):
+        for epoch in range(epochs):
+            self.gnet.train()
+            self.dnet.train()
+            self.train(train_loader, epoch, History())
+            self.gnet.eval()
+            self.dnet.eval()
+            self.evaluate(validate_loader, epoch, History())
+            self.save_checkpoint(epoch)
 
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)

@@ -49,11 +49,12 @@ def is_variable(x):
 
 def unique_experiment_name(root, name):
     target_path = os.path.join(root, name)
+    # TODO: fix bug in Tensorboard logger and checkpoint unique name
     if os.path.exists(target_path):
         name = f'{name}_' + datetime.now().strftime('%m-%dT%H-%M')
 
     _name = globals().get('experiment_name')
-    if _name is None or _name[:-6] != name:
+    if _name is None or _name[:-12] != name:
         global experiment_name
         experiment_name = name
 
@@ -95,7 +96,7 @@ def export_checkpoint_weight(checkpoint_path, remove_module=True):
         return new_state_dict
 
     ckpt = torch.load(checkpoint_path)
-    weight = ckpt['model']
+    weight = ckpt['weight']
     return clean_module(weight) if remove_module else weight
 
 
