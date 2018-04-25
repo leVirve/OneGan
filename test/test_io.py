@@ -9,6 +9,7 @@ def dummy_collect_images():
 class DummyDataset(onegan.io.BaseDataset):
 
     def __init__(self, phase, debug=False, **kwargs):
+        super().__init__(phase)
         self.phase = phase
         self.filenames = self._split_data(dummy_collect_images(), phase, debug=debug)
 

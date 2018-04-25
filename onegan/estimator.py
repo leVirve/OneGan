@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Salas Lin (leVirve)
+# Copyright (c) 2017- Salas Lin (leVirve)
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
@@ -6,9 +6,10 @@
 import logging
 
 import tqdm
+import torch
 
-import onegan.losses as losses
-from onegan.utils import to_var
+import onegan.loss as losses
+from onegan.utils import device
 from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
 
 
@@ -91,7 +92,7 @@ class OneEstimator:
         progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
 
         for data in progress:
-            loss, accuracy = update_fn(self.model, data)
+            loss, accuracy = update_fn(self.model, data.to(device))
             progress.set_postfix(self.history.add({**loss, **accuracy}))
             self.optimizer.zero_grad()
             loss['loss/loss'].backward()
@@ -105,11 +106,12 @@ class OneEstimator:
         progress = tqdm.tqdm(data_loader)
         progress.set_description('Evaluate')
 
-        for data in progress:
-            log_values = inference_fn(self.model, data)
-            loss, accuracy = log_values if isinstance(log_values, tuple) else (log_values, {})
-            progress.set_postfix(self.history.add({**loss, **accuracy}, log_suffix='_val'))
-        return self.history.metric()
+        with torch.no_grad():
+            for data in progress:
+                log_values = inference_fn(self.model, data.to(device))
+                loss, accuracy = log_values if isinstance(log_values, tuple) else (log_values, {})
+                progress.set_postfix(self.history.add({**loss, **accuracy}, log_suffix='_val'))
+            return self.history.metric()
 
     def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
         for epoch in range(epochs):
@@ -142,15 +144,17 @@ class OneEstimator:
     def dummy_evaluate(self, data_loader, inference_fn):
         self.model.eval()
         progress = tqdm.tqdm(data_loader)
-        for data in progress:
-            _stat = inference_fn(self.model, data)
-            if len(_stat) == 2:
-                _, stat = _stat
-            elif isinstance(_stat, dict):
-                stat = _stat
-            else:
-                stat = {}
-            progress.set_postfix(self.history.add(stat, log_suffix='_val'))
+
+        with torch.no_grad():
+            for data in progress:
+                _stat = inference_fn(self.model, data)
+                if len(_stat) == 2:
+                    _, stat = _stat
+                elif isinstance(_stat, dict):
+                    stat = _stat
+                else:
+                    stat = {}
+                progress.set_postfix(self.history.add(stat, log_suffix='_val'))
 
 
 class OneGANEstimator:
@@ -239,12 +243,13 @@ class OneGANEstimator:
         progress = tqdm.tqdm(data_loader)
         progress.set_description('Evaluate')
 
-        for data in progress:
-            staged_closure = inference_fn(self.model_g, self.model_d, data)
-            loss_d, loss_g, accuracy, _ = [r for r in staged_closure]
+        with torch.no_grad():
+            for data in progress:
+                staged_closure = inference_fn(self.model_g, self.model_d, data)
+                loss_d, loss_g, accuracy, _ = [r for r in staged_closure]
 
-            progress.set_postfix(self.history.add({**loss_d, **loss_g, **accuracy}, log_suffix='_val'))
-        return self.history.metric()
+                progress.set_postfix(self.history.add({**loss_d, **loss_g, **accuracy}, log_suffix='_val'))
+            return self.history.metric()
 
     def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
         for epoch in range(epochs):
@@ -282,16 +287,17 @@ class OneGANEstimator:
         progress = tqdm.tqdm(data_loader)
         progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
 
-        for data in progress:
-            stat = {}
-            for staged_closure in update_fn(self.models, data):
-                if isinstance(staged_closure, tuple):
-                    loss, _ = staged_closure
-                    stat.update(loss)
-                elif isinstance(staged_closure, dict):
-                    accuracy = staged_closure
-                    stat.update(accuracy)
-            progress.set_postfix(self.history_val.add(stat, log_suffix='_val'))
+        with torch.no_grad():
+            for data in progress:
+                stat = {}
+                for staged_closure in update_fn(self.models, data):
+                    if isinstance(staged_closure, tuple):
+                        loss, _ = staged_closure
+                        stat.update(loss)
+                    elif isinstance(staged_closure, dict):
+                        accuracy = staged_closure
+                        stat.update(accuracy)
+                progress.set_postfix(self.history_val.add(stat, log_suffix='_val'))
 
 
 class OneGANReadyEstimator(Estimator):
@@ -341,7 +347,7 @@ class OneGANReadyEstimator(Estimator):
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)
         for i, (source, target) in enumerate(progress):
-            source, target = to_var(source), to_var(target)
+            source, target = source.to(device()), target.to(device())
             output = self.gnet(source)
 
             d_loss, d_terms = self.foward_d(source, output.detach(), target)
@@ -367,20 +373,22 @@ class OneGANReadyEstimator(Estimator):
 
     def evaluate(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader, leave=False)
-        for i, (source, target) in enumerate(progress):
-            source, target = to_var(source, volatile=True), to_var(target, volatile=True)
-            output = self.gnet(source)
 
-            _, d_terms = self.foward_d(source, output.detach(), target)
-            _, g_terms = self.foward_g(source, output, target)
-            acc = self.metric(output, target)
+        with torch.no_grad():
+            for i, (source, target) in enumerate(progress):
+                source, target = source.to(device()), target.to(device())
+                output = self.gnet(source)
 
-            progress.set_description('Evaluate')
-            progress.set_postfix(history.add({**g_terms, **d_terms, 'acc/psnr': acc}, log_suffix='_val'))
+                _, d_terms = self.foward_d(source, output.detach(), target)
+                _, g_terms = self.foward_g(source, output, target)
+                acc = self.metric(output, target)
 
-            self.logger.image(
-                {'input': source.data, 'output': output.data, 'target': target.data},
-                epoch=epoch, prefix='val_')
+                progress.set_description('Evaluate')
+                progress.set_postfix(history.add({**g_terms, **d_terms, 'acc/psnr': acc}, log_suffix='_val'))
+
+                self.logger.image(
+                    {'input': source.data, 'output': output.data, 'target': target.data},
+                    epoch=epoch, prefix='val_')
 
         self.logger.scalar(history.metric(), epoch)
 
@@ -412,7 +420,7 @@ class OneWGANReadyEstimator(OneGANEstimator):
 
         def fetch_data():
             source, target = next(progress)
-            return to_var(source), to_var(target)
+            return source.to(device()), target.to(device())
 
         # TODO: need go through and modify to work
         for _ in range(len(progress)):

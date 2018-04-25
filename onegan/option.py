@@ -72,4 +72,5 @@ def trainer_option(parser):
     parser.add_argument('--lr', type=float)
     parser.add_argument('--worker', type=int)
 
+
 cfg = AttrDict()

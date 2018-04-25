@@ -2,7 +2,7 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-from onegan.utils import to_var
+from onegan.utils import device
 
 
 class VisionConv2d:
@@ -19,7 +19,7 @@ class VisionConv2d:
                 'sobel_horizontal': sobel_horizontal_kernel,
             }[kernel]()
         assert kernel.ndim == 2, 'Plain Vision Kernel should be 2D'
-        self.kernel = to_var(self._to_tensor(kernel[np.newaxis, np.newaxis, :]))
+        self.kernel = self._to_tensor(kernel[np.newaxis, np.newaxis, :])
         self.padding = padding
         self.dilation = dilation
         self.name = name
@@ -29,7 +29,7 @@ class VisionConv2d:
         return F.conv2d(x, self.kernel, padding=self.padding, dilation=self.dilation)
 
     def _to_tensor(self, kernel):
-        return torch.from_numpy(kernel)
+        return torch.from_numpy(kernel, device=device())
 
 
 class VisionConv3d:
@@ -47,7 +47,7 @@ class VisionConv3d:
             }[kernel]()
             kernel = np.tile(kernel, (channel, 1, 1))
         assert kernel.ndim == 3, 'Plain Vision Kernel should be 3-D'
-        self.kernel = to_var(self._to_tensor(kernel[np.newaxis, :]))
+        self.kernel = self._to_tensor(kernel[np.newaxis, :])
         self.padding = padding
         self.dilation = dilation
         self.name = name
@@ -57,7 +57,7 @@ class VisionConv3d:
         return F.conv2d(x, self.kernel, padding=self.padding, dilation=self.dilation)
 
     def _to_tensor(self, kernel):
-        return torch.from_numpy(kernel)
+        return torch.from_numpy(kernel, device=device())
 
 
 def laplacian_kernel():

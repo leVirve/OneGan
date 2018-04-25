@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Salas Lin (leVirve)
+# Copyright (c) 2017- Salas Lin (leVirve)
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
@@ -6,9 +6,9 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.autograd import Variable, grad
+from torch.autograd import grad
 
-from onegan.utils import to_device
+from onegan.utils import device
 
 
 def l1_loss(x, y):
@@ -39,12 +39,12 @@ def adversarial_w_loss(x, value: bool):
 
 
 def gradient_penalty(dnet, target, pred):
-    alpha = to_device(torch.rand(target.size(0), 1, 1, 1)).expand_as(target)
-    interp = Variable(alpha * target.data + (1 - alpha) * pred.data, requires_grad=True)
+    w = torch.rand(target.size(0), 1, 1, 1, device=device()).expand_as(target)
+    interp = torch.tensor(w * target + (1 - w) * pred, requires_grad=True, device=device())
 
     output = dnet(interp)
     grads = grad(outputs=output, inputs=interp,
-                 grad_outputs=to_device(torch.ones(output.size())),
+                 grad_outputs=torch.ones(output.size(), device=device()),
                  create_graph=True, retain_graph=True)[0]
 
     return ((grads.view(grads.size(0), -1).norm(dim=1) - 1) ** 2).mean()

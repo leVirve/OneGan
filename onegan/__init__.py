@@ -3,7 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-import onegan.losses  # noqa
+import onegan.loss  # noqa
 import onegan.metrics  # noqa
 import onegan.estimator  # noqa
 import onegan.extension  # noqa
@@ -15,4 +15,4 @@ import onegan.option  # noqa
 import onegan.external  # noqa
 
 
-__version__ = '0.3.2'
+__version__ = '0.4.0a'

@@ -19,8 +19,8 @@ Features
 Prerequsite
 =============
 
-- ``PyTorch`` >= 0.3
-- ``torchvision`` >= 0.2
+- ``PyTorch`` >= 0.4
+- ``torchvision`` >= 0.2.1
 
 
 Installation

@@ -141,16 +141,16 @@ def init_weights(net, init_method='normal'):
         module_name = module_name.replace('1d', '').replace('2d', '').replace('3d', '')
 
         if module_name == 'BatchNorm':
-            nn.init.uniform(m.weight.data, 1.0, 0.02)
-            nn.init.constant(m.bias.data, 0.0)
+            nn.init.uniform_(m.weight.data, 1.0, 0.02)
+            nn.init.constant_(m.bias.data, 0.0)
         elif module_name in ('Conv', 'Linear'):
             init_func(m)
 
     init_func = {
-        'normal': lambda x: nn.init.uniform(x.weight.data, 0.0, 0.02),
-        'kaiming': lambda x: nn.init.kaiming_normal(x.weight.data, a=0, mode='fan_in'),
-        'xavier': lambda x: nn.init.xavier_normal(x.weight.data, gain=1),
-        'orthogonal': lambda x: nn.init.orthogonal(x.weight.data, gain=1),
+        'normal': lambda x: nn.init.uniform_(x.weight.data, 0.0, 0.02),
+        'kaiming': lambda x: nn.init.kaiming_normal_(x.weight.data, a=0, mode='fan_in'),
+        'xavier': lambda x: nn.init.xavier_normal_(x.weight.data, gain=1),
+        'orthogonal': lambda x: nn.init.orthogonal_(x.weight.data, gain=1),
     }.get(init_method)
 
     if init_func is None:

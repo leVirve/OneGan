@@ -117,7 +117,7 @@ class History(Extension):
     def add(self, kwvalues, n=1, log_suffix=''):
         display = {}
         for name, value in kwvalues.items():
-            val = value.data[0] if isinstance(value, Variable) else value
+            val = value.item() if isinstance(value, Variable) else value
             self.meters[log_suffix][f'{name}{log_suffix}'] += val
             display[name] = f'{val:.03f}'
         self.count[log_suffix] += n

@@ -1,4 +1,4 @@
-# Copyright (c) 2017 Salas Lin (leVirve)
+# Copyright (c) 2017- Salas Lin (leVirve)
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
@@ -13,38 +13,23 @@ import scipy.misc
 import torch
 from torch.autograd import Variable
 
-cuda_available = torch.cuda.is_available()
 
-
-def to_device(x):
-    if cuda_available:
-        return x.cuda()
-    return x
-
-
-def to_var(x, **kwargs):
-    var = Variable(x, **kwargs)
-    if cuda_available:
-        return var.cuda()
-    return var
+default_device_name = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def to_numpy(x):
     if torch.is_tensor(x):
         return x.cpu().numpy()
-    if is_variable(x):
-        return x.data.cpu().numpy()
     return x
 
 
-def set_device_mode(device='gpu'):
-    assert device in ('cpu', 'gpu')
-    global cuda_available
-    cuda_available = device == 'gpu'
+def device():
+    return torch.device(default_device_name)
 
 
-def is_variable(x):
-    return 'variable' in str(type(x))
+def set_device(device):
+    global default_device_name
+    default_device_name = device
 
 
 def unique_experiment_name(root, name):
@@ -61,18 +46,20 @@ def unique_experiment_name(root, name):
     return os.path.join(root, experiment_name)
 
 
-def img_normalize(img, img_range=None):
-    ''' normalize the tensor into (0, 1)
-        tensor: Tensor or Variable
-        img_range: tuple of (min_val, max_val)
+def img_normalize(img, val_range=None):
+    ''' Normalize the tensor into (0, 1)
+
+    Args:
+        tensor: torch.Tensor
+        val_range: tuple of (min_val, max_val)
+    Returns:
+        img: normalized tensor
     '''
     t = img.clone()
-    if img_range:
-        mm, mx = img_range[0], img_range[1]
+    if val_range:
+        mm, mx = val_range[0], val_range[1]
     else:
         mm, mx = t.min(), t.max()
-    if isinstance(img, Variable):
-        return t.add(-mm).div(mx - mm)
     try:
         return t.add_(-mm).div_(mx - mm)
     except RuntimeError:

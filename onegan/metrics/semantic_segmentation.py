@@ -14,23 +14,30 @@ np.seterr(divide='ignore', invalid='ignore')
 
 
 def confusion_table(preds, labels, num_class: int):
-    ''' calculate the confision matrix
-        preds: Variable, tensor, ndarray
-        labels: Variable, tensor, ndarray
+    ''' Calculate the confision matrix
+    *credit: refer from [chainer/chainercv] eval_semantic_segmentation.py
 
-        *credit: refer from [chainer/chainercv] eval_semantic_segmentation.py
+    Args:
+        preds: tensor, ndarray
+        labels: tensor, ndarray
     '''
-    preds = preds.data if utils.is_variable(preds) else preds
-    labels = labels.data if utils.is_variable(labels) else labels
-
     confusion = np.zeros(num_class * num_class, dtype=np.int64)
 
+    def flatten(x):
+        if isinstance(x, np.ndarray):
+            return x.flatten()
+        return x.view(-1)
+
+    def numpy(x):
+        if isinstance(x, np.ndarray):
+            return x
+        return x.cpu().numpy()
+
     for pred, label in zip(preds, labels):
-        pred = pred.view(-1)
-        label = label.view(-1)
+        pred, label = flatten(pred), flatten(label)
         mask = label < 255
         hist = num_class * label[mask] + pred[mask]
-        confusion += np.bincount(hist.cpu().numpy(), minlength=num_class ** 2)
+        confusion += np.bincount(numpy(hist), minlength=num_class ** 2)
 
     return confusion.reshape((num_class, num_class))
 
