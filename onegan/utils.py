@@ -11,7 +11,6 @@ from functools import wraps
 
 import scipy.misc
 import torch
-from torch.autograd import Variable
 
 
 default_device_name = 'cuda' if torch.cuda.is_available() else 'cpu'
