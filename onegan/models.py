@@ -134,7 +134,7 @@ class Discriminator(nn.Module):
         return self.model(x)
 
 
-def init_weights(net, init_method='normal'):
+def init_weights(net, init_method='normal', gain=1):
 
     def init_module_weight(m):
         module_name = m.__class__.__name__
@@ -149,8 +149,8 @@ def init_weights(net, init_method='normal'):
     init_func = {
         'normal': lambda x: nn.init.uniform_(x.weight.data, 0.0, 0.02),
         'kaiming': lambda x: nn.init.kaiming_normal_(x.weight.data, a=0, mode='fan_in'),
-        'xavier': lambda x: nn.init.xavier_normal_(x.weight.data, gain=1),
-        'orthogonal': lambda x: nn.init.orthogonal_(x.weight.data, gain=1),
+        'xavier': lambda x: nn.init.xavier_normal_(x.weight.data, gain=gain),
+        'orthogonal': lambda x: nn.init.orthogonal_(x.weight.data, gain=gain),
     }.get(init_method)
 
     if init_func is None:
