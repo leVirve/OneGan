@@ -13,6 +13,13 @@ from onegan.utils import device
 from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
 
 
+class ClosureResult:
+
+    def __init__(self, loss, status):
+        self.loss = loss
+        self.status = status
+
+
 class Estimator:
 
     def __init__(self, model, optimizer, metric, name, **kwargs):
@@ -82,7 +89,10 @@ class OneEstimator:
     def adjust_learning_rate(self, monitor_val):
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
             return
-        self.lr_scheduler.step(monitor_val)
+        try:
+            self.lr_scheduler.step(monitor_val)
+        except:
+            self.lr_scheduler.step()
 
     def train(self, data_loader, update_fn):
         self.model.train()
@@ -113,12 +123,12 @@ class OneEstimator:
                 progress.set_postfix(self.history.add({**loss, **accuracy}, log_suffix='_val'))
             return self.history.metric()
 
-    def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
+    def dummy_run(self, train_loader, validate_loader, closure_fn, epoch_fn, epochs):
         for epoch in range(epochs):
             self.history.clear()
             self.state['epoch'] = epoch
-            self.dummy_train(train_loader, update_fn)
-            self.dummy_evaluate(validate_loader, inference_fn)
+            self.dummy_train(train_loader, closure_fn)
+            self.dummy_evaluate(validate_loader, closure_fn)
 
             if isinstance(epoch_fn, list):
                 for fn in epoch_fn:
@@ -126,6 +136,7 @@ class OneEstimator:
             elif callable(epoch_fn):
                 epoch_fn(epoch, self.history)
 
+            self.adjust_learning_rate(self.history.get('loss/loss_val'))
             self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
 
     def dummy_train(self, data_loader, update_fn):
@@ -134,12 +145,11 @@ class OneEstimator:
         progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
 
         for data in progress:
-            _stat = update_fn(self.model, data)
-            loss, stat = _stat if len(_stat) == 2 else (_stat, {})
+            result = update_fn(self.model, data)
             self.optimizer.zero_grad()
-            loss.backward()
+            result.loss.backward()
             self.optimizer.step()
-            progress.set_postfix(self.history.add(stat))
+            progress.set_postfix(self.history.add(result.status))
 
     def dummy_evaluate(self, data_loader, inference_fn):
         self.model.eval()
@@ -147,14 +157,8 @@ class OneEstimator:
 
         with torch.no_grad():
             for data in progress:
-                _stat = inference_fn(self.model, data)
-                if len(_stat) == 2:
-                    _, stat = _stat
-                elif isinstance(_stat, dict):
-                    stat = _stat
-                else:
-                    stat = {}
-                progress.set_postfix(self.history.add(stat, log_suffix='_val'))
+                result = inference_fn(self.model, data)
+                progress.set_postfix(self.history.add(result.status, log_suffix='_val'))
 
 
 class OneGANEstimator:
