@@ -101,3 +101,22 @@ class TransformPipeline:
 
     def rotate(self, x):
         return self._transform(x, lambda x: T.functional.rotate(x, self.random_angle))
+
+    def to_tensor(self,
+                  x,
+                  im2float=True,
+                  normalize=True, mean=[.5, .5, .5], std=[.5, .5, .5]):
+
+        if not im2float:
+            # fake the data type as float32 to `T.functional.to_tensor()`
+            x = np.array(x, dtype='f')
+
+        if isinstance(x, np.ndarray) and x.ndim == 2:
+            x = np.expand_dims(x, axis=2)
+
+        y = T.functional.to_tensor(x)
+
+        if im2float and normalize:
+            y = F.normalize(y, mean, std)
+
+        return y if im2float else y.long()

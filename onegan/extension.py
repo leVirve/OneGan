@@ -12,8 +12,8 @@ import numpy as np
 import scipy.misc
 import tensorboardX
 import torch
-from torch.autograd import Variable
 
+from onegan.io import save_mat
 from onegan.utils import (export_checkpoint_weight, img_normalize,
                           unique_experiment_name)
 
@@ -64,17 +64,13 @@ class TensorBoardLogger(Extension):
     def image(self, kw_images, epoch, prefix):
         '''
             Args:
-                kw_images: 4-D tensor [batch, channel, height, width]
+                kw_images: dict() of 4-D tensor [batch, channel, height, width]
                 epoch: step for TensorBoard logging
                 prefix: prefix string for tag
         '''
         [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}', img_normalize(image), epoch)
          for tag, images in kw_images.items()
          for i, image in enumerate(images)]
-
-    def clear_state(self):
-        self.image_base_tag_counter = 0
-        self._phase_state = None
 
     @property
     def writer(self):
@@ -86,12 +82,15 @@ class TensorBoardLogger(Extension):
 class ImageSaver(Exception):
 
     def __init__(self, savedir='output/results/', name='default'):
+        self.root_savedir = savedir
         self.name = name
-        self.savedir = unique_experiment_name(savedir, name)
-        self._create_folder()
 
-    def _create_folder(self):
-        os.makedirs(self.savedir, exist_ok=True)
+    @property
+    def savedir(self):
+        if not hasattr(self, '_savedir'):
+            self._savedir = unique_experiment_name(self.root_savedir, self.name)
+            os.makedirs(self._savedir, exist_ok=True)
+        return Path(self._savedir)
 
     def image(self, img_tensors, filenames):
         '''
@@ -117,7 +116,7 @@ class History(Extension):
     def add(self, kwvalues, n=1, log_suffix=''):
         display = {}
         for name, value in kwvalues.items():
-            val = value.item() if isinstance(value, Variable) else value
+            val = value.item()
             self.meters[log_suffix][f'{name}{log_suffix}'] += val
             display[name] = f'{val:.03f}'
         self.count[log_suffix] += n
@@ -305,3 +304,29 @@ class Colorizer(Extension):
                 canvas[channelwise_mask] = self.colors[lbl_id][channel]
 
         return canvas
+
+
+class TensorCollector(Extension):
+    """ Collect batched tensors
+    """
+
+    def __init__(self):
+        self.collection = []
+
+    def add(self, x):
+        self.collection.append(x)
+
+    def cat(self, dim=0):
+        return torch.cat(self.collection, dim=dim)
+
+    def save_mat(self, name: str, data: dict = None, key: str = 'collection'):
+        """ Save the concatenated tensors into *.mat file
+
+        Args:
+            name: (str) saved ooutput name
+            data: (dict) data for saving
+            key: (str) key for default auto saving mode
+        """
+        if data is None:
+            data = {key: self.cat(dim=0).numpy()}
+        save_mat(name, data)
