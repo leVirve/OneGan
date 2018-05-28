@@ -38,13 +38,14 @@ def test_device():
     set_device('cpu')
     assert device().type == 'cpu'
 
-    # change back to gpu
-    set_device('cuda')
-    assert device().type == 'cuda'
+    if torch.cuda.is_available():
+        # change back to gpu
+        set_device('cuda')
+        assert device().type == 'cuda'
 
-    # change back to gpu:0
-    set_device('cuda:0')
-    assert device().type == 'cuda' and device().index == 0
+        # change back to gpu:0
+        set_device('cuda:0')
+        assert device().type == 'cuda' and device().index == 0
 
 
 def test_unique_experiment_name_same_name_experiments():
