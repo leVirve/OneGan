@@ -32,7 +32,7 @@ def test_img_normalize():
 
 def test_device():
     # default device
-    assert device().type == 'cuda'
+    assert device().type == ('cuda' if torch.cuda.is_available() else 'cpu')
 
     # change to cpu
     set_device('cpu')
