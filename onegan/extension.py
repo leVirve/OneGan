@@ -116,7 +116,7 @@ class History(Extension):
     def add(self, kwvalues, n=1, log_suffix=''):
         display = {}
         for name, value in kwvalues.items():
-            val = value.item()
+            val = value.item() if torch.is_tensor(value) else value
             self.meters[log_suffix][f'{name}{log_suffix}'] += val
             display[name] = f'{val:.03f}'
         self.count[log_suffix] += n
@@ -231,17 +231,24 @@ class Checkpoint(Extension):
             'epoch': epoch + 1
         }, folder / 'latest.pt')
 
-    def get_weights(self, weight_path, model=None, remove_module=False):
+    def get_weights(self, weight_path, model=None, remove_module=False, path_only=False):
         """ model weights searcher
 
         Args:
             weight_path (str): the path to single weight file or the folder of weights
-            model (nn.Module)
+            model (nn.Module): if given, the model will be filled with state_dict
+            remove_module (bool): remove the `module.` string from the keys of state_dict
+            path_only (bool): if true, the return value will be only path to weights
+        Returns:
+            - payload, path: if model is given, payload will be loaded model else will be state_dict
+            - path: the path to the weight
         """
 
         weight_path = Path(weight_path)
         if weight_path.is_file():
             path = str(weight_path)
+            if path_only:
+                yield path
             payload = self.load(path, model=model, remove_module=remove_module)
             yield payload, path
 
@@ -252,6 +259,9 @@ class Checkpoint(Extension):
         for path in paths:
             path = str(path)
             if 'latest.pt' in path:
+                continue
+            if path_only:
+                yield path
                 continue
             payload = self.load(path, model=model, remove_module=remove_module)
             model = payload  # use corrected model_def

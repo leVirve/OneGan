@@ -65,7 +65,7 @@ class OneEstimator:
         self.history = History()
         self.state = {}
         self._log = logging.getLogger('onegan.OneEstimator')
-        self._log.info(f'OneEstimator<{name}> is initialized')
+        self._log.info(f'OneEstimator is initialized')
 
     def tensorboard_logging(self, scalar=None, image=None, prefix=None):
         ''' wrapper in estimator for Tensorboard logger
@@ -83,15 +83,15 @@ class OneEstimator:
             self.logger.image(image, self.state['epoch'], prefix)
             self._log.debug('tensorboard_logging logs images')
 
-    def load_checkpoint(self, weight_path, remove_module=False):
+    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
         if not hasattr(self, 'saver') or self.saver is None:
             return
-        self.saver.apply(weight_path, self.model, remove_module=remove_module)
+        self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
 
     def save_checkpoint(self):
         if not hasattr(self, 'saver') or self.saver is None:
             return
-        self.saver.save(self.model, self.optimizer, self.state['epoch'])
+        self.saver.save(self.model, self.optimizer, self.state['epoch'] + 1)
 
     def adjust_learning_rate(self, monitor_val):
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
@@ -101,12 +101,14 @@ class OneEstimator:
         else:
             self.lr_scheduler.step()
 
-    def run(self, train_loader, validate_loader, closure_fn, epoch_fn, epochs):
-        for epoch in range(epochs):
+    def run(self, train_loader, validate_loader, closure_fn, epoch_fn, epochs, longtime_pbar=False):
+        epoch_range = tqdm.trange(epochs, desc='Training Procedure') if longtime_pbar else range(epochs)
+
+        for epoch in epoch_range:
             self.history.clear()
             self.state['epoch'] = epoch
-            self.train(train_loader, closure_fn)
-            self.evaluate(validate_loader, closure_fn)
+            self.train(train_loader, closure_fn, longtime_pbar)
+            self.evaluate(validate_loader, closure_fn, longtime_pbar)
 
             if isinstance(epoch_fn, list):
                 for fn in epoch_fn:
@@ -120,10 +122,9 @@ class OneEstimator:
             self.adjust_learning_rate(self.history.get('loss/loss_val'))
             self._log.debug(f'OneEstimator epoch#{epoch} end')
 
-    def train(self, data_loader, update_fn):
+    def train(self, data_loader, update_fn, longtime_pbar=False):
         self.model.train()
-        progress = tqdm.tqdm(data_loader)
-        progress.set_description(f'Epoch#{self.state["epoch"] + 1}')
+        progress = tqdm.tqdm(data_loader, desc=f'Epoch#{self.state["epoch"] + 1}', leave=not longtime_pbar)
 
         for data in progress:
             result = update_fn(self.model, data)
@@ -132,9 +133,9 @@ class OneEstimator:
             self.optimizer.step()
             progress.set_postfix(self.history.add(result.status))
 
-    def evaluate(self, data_loader, inference_fn):
+    def evaluate(self, data_loader, inference_fn, longtime_pbar=False):
         self.model.eval()
-        progress = tqdm.tqdm(data_loader)
+        progress = tqdm.tqdm(data_loader, desc='evaluating', leave=not longtime_pbar)
 
         with torch.no_grad():
             for data in progress:
@@ -157,8 +158,8 @@ class OneGANEstimator:
         self.history = History()
         self.history_val = History()
         self.state = {}
-        self._log = logging.getLogger(f'OneGAN.{name}')
-        self._log.info(f'OneGANEstimator<{name}> is initialized')
+        self.log = logging.getLogger(f'OneGAN.{name}')
+        self.log.info(f'OneGANEstimator<{name}> is initialized')
 
     def run(self, train_loader, validate_loader, update_fn, inference_fn, epochs):
         for epoch in range(epochs):
@@ -172,7 +173,7 @@ class OneGANEstimator:
 
             self.save_checkpoint()
             self.adjust_learning_rate(('loss/loss_g_val', 'loss/loss_d_val'))
-            self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
+            self.log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
 
     def load_checkpoint(self, weight_path, resume=False):
         if not hasattr(self, 'saver') or self.saver is None:
@@ -242,7 +243,7 @@ class OneGANEstimator:
             self.dummy_train(train_loader, update_fn)
             self.dummy_evaluate(validate_loader, inference_fn)
             epoch_fn(epoch)
-            self._log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
+            self.log.debug(f'OneEstimator<{self.name}> epoch#{epoch} end')
 
     def dummy_train(self, data_loader, update_fn):
         [m.train() for m in self.models]
