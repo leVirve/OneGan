@@ -79,7 +79,7 @@ class TensorBoardLogger(Extension):
         return self._writer
 
 
-class ImageSaver(Exception):
+class ImageSaver(Extension):
 
     def __init__(self, savedir='output/results/', name='default'):
         self.root_savedir = savedir
@@ -104,7 +104,7 @@ class ImageSaver(Exception):
             name, ext = os.path.splitext(fname)
             ext = '.png' if ext not in ['.png', '.jpg'] else ext
             path = os.path.join(self.savedir, name + ext)
-            scipy.misc.imsave(path, img.cpu().numpy())
+            scipy.misc.imsave(path, img_normalize(img).cpu().numpy())
 
 
 class History(Extension):
@@ -298,20 +298,16 @@ class Colorizer(Extension):
         return colors
 
     def apply(self, label):
-        if label.dim() == 3:
-            label = label.unsqueeze(1)
-        assert label.dim() == 4
-        batch, _, h, w = label.size()
+        if label.dim() == 4:
+            label = label.squeeze(1)
+        assert label.dim() == 3
+        batch, h, w = label.size()
         canvas = torch.zeros(batch, self.num_channel, h, w)
 
         for channel in range(self.num_channel):
+            color_channel = canvas[:, channel, ...]
             for lbl_id in range(self.num_label):
-                mask = label == lbl_id  # N x 1 x h x w
-                channelwise_mask = torch.cat(
-                    channel * [torch.zeros_like(mask)] +
-                    [mask] +
-                    (self.num_channel - 1 - channel) * [torch.zeros_like(mask)], dim=1)
-                canvas[channelwise_mask] = self.colors[lbl_id][channel]
+                color_channel[label == lbl_id] = self.colors[lbl_id][channel]
 
         return canvas
 
