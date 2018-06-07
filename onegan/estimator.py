@@ -4,6 +4,7 @@
 # https://opensource.org/licenses/MIT
 
 import logging
+from collections import defaultdict
 
 import tqdm
 import torch
@@ -64,24 +65,44 @@ class OneEstimator:
         # internel
         self.history = History()
         self.state = {}
+        self._hist_dict = defaultdict(list)
         self._log = logging.getLogger('onegan.OneEstimator')
         self._log.info(f'OneEstimator is initialized')
 
-    def tensorboard_logging(self, scalar=None, image=None, prefix=None):
+    def tensorboard_logging(self, image=None, histogram=None, prefix=None):
         ''' wrapper in estimator for Tensorboard logger
-            Args:
-                scalar: dict() of a list of scalars
-                image: dict() of a list of images
-                prefix: prefix string for keyword-image
+        Args:
+            image: dict() of a list of images
+            histogram: dict() of tensors for accumulated histogram
+            prefix: prefix string for keyword-image
         '''
         if not hasattr(self, 'logger') or self.logger is None:
             return
-        if scalar:
-            self.logger.scalar(scalar, self.state['epoch'])
-            self._log.debug('tensorboard_logging logs scalars')
+
         if image and prefix:
             self.logger.image(image, self.state['epoch'], prefix)
             self._log.debug('tensorboard_logging logs images')
+
+        if histogram and prefix:
+            for tag, tensor in histogram.items():
+                self._hist_dict[f'{prefix}{tag}'].append(tensor.clone())
+            self._log.debug('tensorboard_logging accumulate histograms')
+
+    def tensorboard_epoch_logging(self, scalar=None):
+        ''' wrapper in estimator for Tensorboard logger
+        Args:
+            scalar: dict() of a list of scalars
+        '''
+        if not hasattr(self, 'logger') or self.logger is None:
+            return
+        self.logger.scalar(scalar, self.state['epoch'])
+        self._log.debug('tensorboard_epoch_logging logs scalars')
+
+        if self._hist_dict:
+            kw_histograms = {tag: torch.cat(tensors) for tag, tensors in self._hist_dict.items()}
+            self.logger.histogram(kw_histograms, self.state['epoch'])
+            self._hist_dict = defaultdict(list)
+            self._log.debug('tensorboard_epoch_logging logs histograms')
 
     def load_checkpoint(self, weight_path, remove_module=False, resume=False):
         if not hasattr(self, 'saver') or self.saver is None:
@@ -117,7 +138,7 @@ class OneEstimator:
                 epoch_fn(epoch, self.history)
 
             # optional extensions: will automatically work if given
-            self.tensorboard_logging(scalar=self.history.metric())
+            self.tensorboard_epoch_logging(scalar=self.history.metric())
             self.save_checkpoint()
             self.adjust_learning_rate(self.history.get('loss/loss_val'))
             self._log.debug(f'OneEstimator epoch#{epoch} end')

@@ -49,28 +49,20 @@ class Extension:
 
 
 class TensorBoardLogger(Extension):
+    ''' Smarter TensorBoard logger wrapping tensorboardX
+    Args:
+        logdir: where's the root for tensorboard logging events
+        name: the subfolder for the experiment
+        max_num_images: the number of images to log on the image tab of TensorBoard
+    '''
 
-    def __init__(self, logdir='logs', name='default', max_num_images=20):
+    def __init__(self, logdir='exp/logs', name='default', max_num_images=20):
         self.logdir = unique_experiment_name(logdir, name)
         self.max_num_images = max_num_images
+
+        # internel usage
         self._tag_base_counter = 0
         self._phase_state = None
-
-    def scalar(self, kw_scalars, epoch):
-        [self.writer.add_scalar(tag, value, epoch) for tag, value in kw_scalars.items()]
-
-    @check_state
-    @check_num_images
-    def image(self, kw_images, epoch, prefix):
-        '''
-            Args:
-                kw_images: dict() of 4-D tensor [batch, channel, height, width]
-                epoch: step for TensorBoard logging
-                prefix: prefix string for tag
-        '''
-        [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}', img_normalize(image), epoch)
-         for tag, images in kw_images.items()
-         for i, image in enumerate(images)]
 
     @property
     def writer(self):
@@ -78,10 +70,35 @@ class TensorBoardLogger(Extension):
             self._writer = tensorboardX.SummaryWriter(self.logdir)
         return self._writer
 
+    def scalar(self, kw_scalars, epoch):
+        [self.writer.add_scalar(tag, value, epoch) for tag, value in kw_scalars.items()]
+
+    @check_state
+    @check_num_images
+    def image(self, kw_images, epoch, prefix=''):
+        '''
+        Args:
+            kw_images: dict of tensors [batch, channel, height, width]
+            epoch: step for TensorBoard logging
+            prefix: prefix string for tag
+        '''
+        [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}', img_normalize(image), epoch)
+         for tag, images in kw_images.items()
+         for i, image in enumerate(images)]
+
+    def histogram(self, kw_tensors, epoch, prefix='', bins='auto'):
+        '''
+        Args:
+            kw_tensors: dict of tensors
+            epoch: step for TensorBoard logging
+            bins: `bins` for tensorboadX.add_histogram
+        '''
+        [self.writer.add_histogram(f'{tag}', tensor, epoch, bins=bins) for tag, tensor in kw_tensors.items()]
+
 
 class ImageSaver(Extension):
 
-    def __init__(self, savedir='output/results/', name='default'):
+    def __init__(self, savedir='exp/results/', name='default'):
         self.root_savedir = savedir
         self.name = name
 
@@ -140,7 +157,7 @@ class History(Extension):
 
 class Checkpoint(Extension):
 
-    def __init__(self, savedir='output/checkpoints/', name='default', save_epochs=20):
+    def __init__(self, savedir='exp/checkpoints/', name='default', save_epochs=20):
         self.root_savedir = savedir
         self.name = name
         self.save_epochs = save_epochs
