@@ -34,6 +34,7 @@ setup(
         *pip_requirements(),
         'numpy',
         'scipy',
+        'cv2',
         'pillow >= 4.1.1',
         'torch'
     ],

@@ -66,7 +66,7 @@ class OneEstimator:
         self.history = History()
         self.state = {}
         self._hist_dict = defaultdict(list)
-        self._log = logging.getLogger('onegan.OneEstimator')
+        self._log = logging.getLogger('OneEstimator')
         self._log.info(f'OneEstimator is initialized')
 
     def tensorboard_logging(self, image=None, histogram=None, prefix=None):
