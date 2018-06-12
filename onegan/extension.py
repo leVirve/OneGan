@@ -14,8 +14,7 @@ import tensorboardX
 import torch
 
 from onegan.io import save_mat
-from onegan.utils import (export_checkpoint_weight, img_normalize,
-                          unique_experiment_name)
+from onegan.utils import export_checkpoint_weight, img_normalize, unique_experiment_name
 
 
 def check_state(f):
@@ -28,7 +27,7 @@ def check_state(f):
 
 
 def check_num_images(f):
-    def wrapper(instance, kw_images, epoch, prefix):
+    def wrapper(instance, kw_images, epoch, prefix=''):
         if instance._tag_base_counter >= instance.max_num_images:
             return
         num_summaried_img = len(next(iter(kw_images.values())))
@@ -60,7 +59,7 @@ class TensorBoardLogger(Extension):
         self.logdir = unique_experiment_name(logdir, name)
         self.max_num_images = max_num_images
 
-        # internel usage
+        # internal usage
         self._tag_base_counter = 0
         self._phase_state = None
 
@@ -70,7 +69,17 @@ class TensorBoardLogger(Extension):
             self._writer = tensorboardX.SummaryWriter(self.logdir)
         return self._writer
 
+    def clear(self):
+        ''' manually clear the logger's state '''
+        self._tag_base_counter = 0
+        self._phase_state = None
+
     def scalar(self, kw_scalars, epoch):
+        '''
+        Args:
+            kw_scalars: dict of scalars
+            epoch: step for TensorBoard logging
+        '''
         [self.writer.add_scalar(tag, value, epoch) for tag, value in kw_scalars.items()]
 
     @check_state
@@ -97,6 +106,11 @@ class TensorBoardLogger(Extension):
 
 
 class ImageSaver(Extension):
+    ''' Smarter batched image saver
+    Args:
+        savedir: where's the root for saving images
+        name: the subfolder for the experiment
+    '''
 
     def __init__(self, savedir='exp/results/', name='default'):
         self.root_savedir = savedir
@@ -113,6 +127,7 @@ class ImageSaver(Extension):
         '''
             Args:
                 img_tensors: batched tensor [batch, (channel,) height, width]
+                filenames: corresponding batched (list of) filename strings
         '''
         if img_tensors.dim() == 4:
             img_tensors = img_tensors.permute(0, 2, 3, 1)
@@ -180,7 +195,7 @@ class Checkpoint(Extension):
         It can recover changed model module from dumped `latest.pt` and load
         pre-trained weights.
 
-        Arge:
+        Args:
             weight_path (str): full path or short weight name to the dumped weight
             remove_module (bool)
         """
