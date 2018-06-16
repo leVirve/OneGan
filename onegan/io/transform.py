@@ -12,6 +12,17 @@ import torchvision.transforms.functional as F
 from PIL import Image
 
 
+interpolations = {
+    'nearest': Image.NEAREST,
+    'bilinear': Image.BILINEAR,
+    'bicubic': Image.BICUBIC,
+}
+
+
+def image_resize(x, target_size, mode='bilinear'):
+    return T.functional.resize(x, target_size, interpolations[mode])
+
+
 class SegmentationPair():
 
     def __init__(self,
@@ -58,14 +69,10 @@ class SegmentationPair():
 
 class TransformPipeline:
 
-    def __init__(self, target_size=None, color_jiiter=None):
+    def __init__(self, target_size=None, color_jitter=None):
         self.target_size = target_size
-        self.color_jitter = color_jiiter or \
+        self.color_jitter = color_jitter or \
             T.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2)
-        self.totensor_normalize = T.Compose([
-            T.ToTensor(),
-            T.Normalize(mean=[.5, .5, .5], std=[.5, .5, .5]),
-        ])
 
     def new_random_state(self):
         self.random = random.random() > 0.5
@@ -80,12 +87,7 @@ class TransformPipeline:
         return Image.open(path)
 
     def resize(self, x, mode='bilinear'):
-        interpolation = {
-            'nearest': Image.NEAREST,
-            'bilinear': Image.BILINEAR,
-            'bicubic': Image.BICUBIC,
-        }[mode]
-        return T.functional.resize(x, self.target_size, interpolation)
+        return image_resize(x, self.target_size, mode)
 
     def colorjiiter(self, x):
         return self.color_jitter(x)

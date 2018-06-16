@@ -66,7 +66,8 @@ def max_bipartite_matching_score(predictions: np.ndarray, targets: np.ndarray):
         score = -cost[row_ind, col_ind].sum()
         return score / target.size
 
-    predictions, targets = utils.to_numpy(predictions), utils.to_numpy(targets)
+    predictions = np.squeeze(utils.to_numpy(predictions))
+    targets = np.squeeze(utils.to_numpy(targets))
 
     if len(predictions.shape) == len(targets.shape) and len(predictions.shape) == 3:
         scores = [_one_sample(p, t) for p, t in zip(predictions, targets)]
