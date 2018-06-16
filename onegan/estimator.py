@@ -62,7 +62,7 @@ class OneEstimator:
         self.saver = saver
         self.logger = logger
 
-        # internel
+        # internal
         self.history = History()
         self.state = {}
         self._hist_dict = defaultdict(list)

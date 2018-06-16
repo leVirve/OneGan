@@ -18,7 +18,7 @@ from onegan.utils import export_checkpoint_weight, img_normalize, unique_experim
 
 
 def check_state(f):
-    def wrapper(instance, kw_images, epoch, prefix):
+    def wrapper(instance, kw_images, epoch, prefix=''):
         if instance._phase_state != prefix:
             instance._tag_base_counter = 0
             instance._phase_state = prefix
@@ -361,7 +361,7 @@ class TensorCollector(Extension):
         """ Save the concatenated tensors into *.mat file
 
         Args:
-            name: (str) saved ooutput name
+            name: (str) saved output name
             data: (dict) data for saving
             key: (str) key for default auto saving mode
         """
