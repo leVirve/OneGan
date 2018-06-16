@@ -155,7 +155,7 @@ class History(Extension):
         return display
 
     def get(self, key):
-        return self.metric()[key]
+        return self.metric().get(key)
 
     def metric(self):
         result = {}
