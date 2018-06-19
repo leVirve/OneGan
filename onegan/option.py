@@ -10,19 +10,20 @@ import yaml
 
 class Parser():
 
-    def __init__(self, description, config=None):
+    def __init__(self, description='', config=None):
         self.config_file = config
         self.parser = argparse.ArgumentParser(description=description)
         self._add_default_option()
 
-    def parse(self, args=None):
+    def parse(self, args=None, namespace=None):
         """ Parse the arguments from command-line and config file.
         The arguments will be overwritten by command-line ones.
         """
         global cfg
+        namespace = cfg if namespace is None else namespace
 
         file_cfg = self._load_option_config(self.config_file)
-        cli_cfg = self.parser.parse_args(args, namespace=cfg)
+        cli_cfg = self.parser.parse_args(args, namespace=namespace)
         for key, v in file_cfg.items():
             if isinstance(v, dict):
                 # support two-level attr-dict

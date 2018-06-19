@@ -15,4 +15,4 @@ import onegan.option  # noqa
 import onegan.external  # noqa
 
 
-__version__ = '0.4.0a'
+__version__ = '0.4.1'
