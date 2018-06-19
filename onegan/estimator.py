@@ -12,7 +12,7 @@ import tqdm
 import torch
 
 import onegan.loss as losses
-from onegan.utils import device
+from onegan.utils import device, AttrDict
 from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
 
 
@@ -34,172 +34,6 @@ class ClosureResult:
         self.summary = summary
 
 
-class Estimator:
-
-    def __init__(self, model, optimizer, metric, name, **kwargs):
-        self.model = model
-        self.optim = optimizer
-        self.metric = metric
-        self.name = name
-
-        # TODO: make these extensions optional
-        if self.name:
-            self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
-            self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
-
-    def run(self, train_loader, validate_loader, epochs):
-        for epoch in range(epochs):
-            self.model.train()
-            self.train(train_loader, epoch, History())
-            self.model.eval()
-            self.evaluate(validate_loader, epoch, History())
-            self.save_checkpoint(epoch)
-
-    def save_checkpoint(self, epoch):
-        if not hasattr(self, 'saver'):
-            return
-        self.saver.save(self.model, self.optim, epoch)
-
-
-class OneEstimator:
-
-    def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, name=None):
-        self.model = model
-
-        # can leave empty
-        self.optimizer = optimizer
-        self.name = name
-
-        # optional
-        self.lr_scheduler = lr_scheduler
-        self.saver = saver
-        self.logger = logger
-
-        # internal
-        self.history = History()
-        self.state = {}
-        self._hist_dict = defaultdict(list)
-        self._log = logging.getLogger('OneEstimator')
-        self._log.info(f'OneEstimator is initialized')
-
-    def tensorboard_logging(self, image=None, histogram=None, prefix=None):
-        ''' wrapper in estimator for Tensorboard logger
-        Args:
-            image: dict() of a list of images
-            histogram: dict() of tensors for accumulated histogram
-            prefix: prefix string for keyword-image
-        '''
-        if not hasattr(self, 'logger') or self.logger is None:
-            return
-
-        if image and prefix:
-            self.logger.image(image, self.state['epoch'], prefix)
-            self._log.debug('tensorboard_logging logs images')
-
-        if histogram and prefix:
-            for tag, tensor in histogram.items():
-                self._hist_dict[f'{prefix}{tag}'].append(tensor.clone())
-            self._log.debug('tensorboard_logging accumulate histograms')
-
-    def tensorboard_epoch_logging(self, scalar=None):
-        ''' wrapper in estimator for Tensorboard logger
-        Args:
-            scalar: dict() of a list of scalars
-        '''
-        if not hasattr(self, 'logger') or self.logger is None:
-            return
-        self.logger.scalar(scalar, self.state['epoch'])
-        self._log.debug('tensorboard_epoch_logging logs scalars')
-
-        if self._hist_dict:
-            kw_histograms = {tag: torch.cat(tensors) for tag, tensors in self._hist_dict.items()}
-            self.logger.histogram(kw_histograms, self.state['epoch'])
-            self._hist_dict = defaultdict(list)
-            self._log.debug('tensorboard_epoch_logging logs histograms')
-
-    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
-        if not hasattr(self, 'saver') or self.saver is None:
-            return
-        self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
-
-    def save_checkpoint(self):
-        if not hasattr(self, 'saver') or self.saver is None:
-            return
-        self.saver.save(self.model, self.optimizer, self.state['epoch'] + 1)
-
-    def adjust_learning_rate(self, monitor_val):
-        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
-            return
-        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            self.lr_scheduler.step(monitor_val)
-        else:
-            self.lr_scheduler.step()
-
-    def run(self, train_loader, validate_loader, closure_fn, epoch_fn, epochs, longtime_pbar=False):
-        epoch_range = tqdm.trange(epochs, desc='Training Procedure') if longtime_pbar else range(epochs)
-
-        for epoch in epoch_range:
-            self.history.clear()
-            self.state['epoch'] = epoch
-            self.train(train_loader, closure_fn, longtime_pbar)
-            self.evaluate(validate_loader, closure_fn, longtime_pbar)
-
-            if isinstance(epoch_fn, list):
-                for fn in epoch_fn:
-                    fn(epoch, self.history)
-            elif callable(epoch_fn):
-                epoch_fn(epoch, self.history)
-
-            # optional extensions: will automatically work if given
-            self.tensorboard_epoch_logging(scalar=self.history.metric())
-            self.save_checkpoint()
-            self.adjust_learning_rate(self.history.get('loss/loss_val'))
-            self._log.debug(f'OneEstimator epoch#{epoch} end')
-
-    def train(self, data_loader, update_fn, longtime_pbar=False):
-        self.model.train()
-        progress = tqdm.tqdm(data_loader, desc=f'Epoch#{self.state["epoch"] + 1}', leave=not longtime_pbar)
-
-        for data in progress:
-            result = update_fn(self.model, data)
-            self.optimizer.zero_grad()
-            result.loss.backward()
-            self.optimizer.step()
-            progress.set_postfix(self.history.add(result.status))
-
-    def evaluate(self, data_loader, inference_fn, longtime_pbar=False):
-        self.model.eval()
-        progress = tqdm.tqdm(data_loader, desc='evaluating', leave=not longtime_pbar)
-
-        with torch.no_grad():
-            for data in progress:
-                result = inference_fn(self.model, data)
-                progress.set_postfix(self.history.add(result.status, log_suffix='_val'))
-
-
-'''
-Event-trigger estimator
-'''
-
-
-def epoch_end_logging(estmt):
-    estmt.tensorboard_epoch_logging(scalar=estmt.history.metric())
-
-
-def iteration_end_logging(estmt):
-    summary = estmt.state['result'].summary
-    prefix = summary['prefix']
-    estmt.tensorboard_logging(image=summary['image'], prefix=prefix)
-    estmt.tensorboard_logging(histogram=summary['histogram'], prefix=prefix)
-
-
-def adjust_learning_rate(estmt):
-    estmt.adjust_learning_rate(estmt.history.get('loss/loss_val'))
-
-
-def save_checkpoint(estmt):
-    estmt.save_checkpoint()
-
 
 class EstimatorEventMixin:
 
@@ -215,7 +49,7 @@ class EstimatorEventMixin:
         Example usage:
         .. code-block:: python
             def print_epoch(estimator):
-                print("Epoch: {}".format(estimator.state['epoch']))
+                print("Epoch: {}".format(estimator.state.epoch))
             estimator.add_event_handler(Events.EPOCH_END, print_epoch)
         """
         if event_name not in Events:
@@ -261,13 +95,80 @@ class EstimatorEventMixin:
             evt_handler(self, *(args + evt_args), **evt_kwargs)
 
 
-class OneEvEstimator(EstimatorEventMixin, OneEstimator):
+class Estimator:
 
-    def __init__(self, *args, default_handlers=False, **kwargs):
-        super().__init__(*args, **kwargs)
+    def __init__(self, model, optimizer, metric, name, **kwargs):
+        self.model = model
+        self.optim = optimizer
+        self.metric = metric
+        self.name = name
+
+        # TODO: make these extensions optional
+        if self.name:
+            self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
+            self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
+
+    def run(self, train_loader, validate_loader, epochs):
+        for epoch in range(epochs):
+            self.model.train()
+            self.train(train_loader, epoch, History())
+            self.model.eval()
+            self.evaluate(validate_loader, epoch, History())
+            self.save_checkpoint(epoch)
+
+    def save_checkpoint(self, epoch):
+        if not hasattr(self, 'saver'):
+            return
+        self.saver.save(self.model, self.optim, epoch)
+
+
+'''
+Event-trigger estimator
+'''
+
+
+def epoch_end_logging(estmt):
+    estmt.tensorboard_epoch_logging(scalar=estmt.history.metric())
+
+
+def iteration_end_logging(estmt):
+    summary = estmt.state.result.summary
+    prefix = summary['prefix']
+    estmt.tensorboard_logging(image=summary['image'], prefix=prefix)
+    estmt.tensorboard_logging(histogram=summary['histogram'], prefix=prefix)
+
+
+def adjust_learning_rate(estmt):
+    estmt.adjust_learning_rate(estmt.history.get('loss/loss_val'))
+
+
+def save_checkpoint(estmt):
+    estmt.save_checkpoint()
+
+
+class OneEstimator(EstimatorEventMixin):
+
+    def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, default_handlers=False):
+        self.model = model
+
+        # can leave empty
+        self.optimizer = optimizer
+
+        # optional
+        self.lr_scheduler = lr_scheduler
+        self.saver = saver
+        self.logger = logger
+
+        # internal
+        self.history = History()
+        self.state = AttrDict(epoch=0)
         self._events = defaultdict(list)
+        self._hist_dict = defaultdict(list)
+        self._log = logging.getLogger('OneEstimator')
+
         if default_handlers:
             self.add_default_event_handlers()
+        self._log.info(f'OneEstimator is initialized')
 
     def add_default_event_handlers(self):
         self.add_event_handler(Events.ITERATION_END, iteration_end_logging)
@@ -275,12 +176,65 @@ class OneEvEstimator(EstimatorEventMixin, OneEstimator):
         self.add_event_handler(Events.EPOCH_END, save_checkpoint)
         self.add_event_handler(Events.EPOCH_END, adjust_learning_rate)
 
+    def tensorboard_logging(self, image=None, histogram=None, prefix=None):
+        ''' wrapper in estimator for Tensorboard logger
+        Args:
+            image: dict() of a list of images
+            histogram: dict() of tensors for accumulated histogram
+            prefix: prefix string for keyword-image
+        '''
+        if not hasattr(self, 'logger') or self.logger is None:
+            return
+
+        if image and prefix:
+            self.logger.image(image, self.state.epoch, prefix)
+            self._log.debug('tensorboard_logging logs images')
+
+        if histogram and prefix:
+            for tag, tensor in histogram.items():
+                self._hist_dict[f'{prefix}{tag}'].append(tensor.clone())
+            self._log.debug('tensorboard_logging accumulate histograms')
+
+    def tensorboard_epoch_logging(self, scalar=None):
+        ''' wrapper in estimator for Tensorboard logger
+        Args:
+            scalar: dict() of a list of scalars
+        '''
+        if not hasattr(self, 'logger') or self.logger is None:
+            return
+        self.logger.scalar(scalar, self.state.epoch)
+        self._log.debug('tensorboard_epoch_logging logs scalars')
+
+        if self._hist_dict:
+            kw_histograms = {tag: torch.cat(tensors) for tag, tensors in self._hist_dict.items()}
+            self.logger.histogram(kw_histograms, self.state.epoch)
+            self._hist_dict = defaultdict(list)
+            self._log.debug('tensorboard_epoch_logging logs histograms')
+
+    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
+
+    def save_checkpoint(self):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        self.saver.save(self.model, self.optimizer, self.state.epoch + 1)
+
+    def adjust_learning_rate(self, monitor_val):
+        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
+            return
+        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            self.lr_scheduler.step(monitor_val)
+        else:
+            self.lr_scheduler.step()
+
     def run(self, train_loader, validate_loader, closure_fn, epochs, longtime_pbar=False):
         epoch_range = tqdm.trange(epochs, desc='Training Procedure') if longtime_pbar else range(epochs)
 
         for epoch in epoch_range:
             self.history.clear()
-            self.state['epoch'] = epoch
+            self.state.epoch = epoch
             self._trigger(Events.EPOCH_START)
 
             self.train(train_loader, closure_fn, longtime_pbar)
@@ -291,17 +245,17 @@ class OneEvEstimator(EstimatorEventMixin, OneEstimator):
 
     def train(self, data_loader, update_fn, longtime_pbar=False):
         self.model.train()
-        progress = tqdm.tqdm(data_loader, desc=f'Epoch#{self.state["epoch"] + 1}', leave=not longtime_pbar)
+        progress = tqdm.tqdm(data_loader, desc=f'Epoch#{self.state.epoch + 1}', leave=not longtime_pbar)
 
         for data in progress:
             self._trigger(Events.ITERATION_START)
-            result = update_fn(self.model, data)
 
+            result = update_fn(self.model, data)
+            self.state.result = result
             self.optimizer.zero_grad()
             result.loss.backward()
             self.optimizer.step()
             progress.set_postfix(self.history.add(result.summary['scalar']))
-            self.state['result'] = result
 
             self._trigger(Events.ITERATION_END)
 
@@ -314,8 +268,8 @@ class OneEvEstimator(EstimatorEventMixin, OneEstimator):
                 self._trigger(Events.ITERATION_START)
 
                 result = inference_fn(self.model, data)
-                progress.set_postfix(self.history.add(result.summary['scalar'], log_suffix='_val'))
-                self.state['result'] = result
+                progress.set_postfix(self.history.add(result.status, log_suffix='_val'))
+                self.state.result = result
 
                 self._trigger(Events.ITERATION_END)
 
@@ -340,7 +294,7 @@ class OneGANEstimator:
 
     def run(self, train_loader, validate_loader, update_fn, inference_fn, epochs):
         for epoch in range(epochs):
-            self.state['epoch'] = epoch
+            self.state.epoch = epoch
 
             self.train(train_loader, update_fn)
             self.logger.scalar(self.history.metric(), epoch)
@@ -360,7 +314,7 @@ class OneGANEstimator:
     def save_checkpoint(self):
         if not hasattr(self, 'saver') or self.saver is None:
             return
-        self.saver.save(self, self.state['epoch'])
+        self.saver.save(self, self.state.epoch)
 
     def adjust_learning_rate(self, monitor_vals):
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
@@ -416,7 +370,7 @@ class OneGANEstimator:
 
     def dummy_run(self, train_loader, validate_loader, update_fn, inference_fn, epoch_fn, epochs):
         for epoch in range(epochs):
-            self.state['epoch'] = epoch
+            self.state.epoch = epoch
             self.dummy_train(train_loader, update_fn)
             self.dummy_evaluate(validate_loader, inference_fn)
             epoch_fn(epoch)
