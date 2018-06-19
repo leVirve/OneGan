@@ -3,7 +3,9 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
+import inspect
 import logging
+from enum import Enum
 from collections import defaultdict
 
 import tqdm
@@ -14,11 +16,22 @@ from onegan.utils import device
 from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
 
 
+class Events(Enum):
+    """ Events for the estimator  """
+    STARTED = "started"
+    END = "END"
+    ITERATION_START = "iteration_start"
+    ITERATION_END = "iteration_end"
+    EPOCH_START = "epoch_start"
+    EPOCH_END = "epoch_end"
+
+
 class ClosureResult:
 
-    def __init__(self, loss=None, status=None):
+    def __init__(self, loss=None, status=None, summary=None):
         self.loss = loss
         self.status = status
+        self.summary = summary
 
 
 class Estimator:
@@ -162,6 +175,149 @@ class OneEstimator:
             for data in progress:
                 result = inference_fn(self.model, data)
                 progress.set_postfix(self.history.add(result.status, log_suffix='_val'))
+
+
+'''
+Event-trigger estimator
+'''
+
+
+def epoch_end_logging(estmt):
+    estmt.tensorboard_epoch_logging(scalar=estmt.history.metric())
+
+
+def iteration_end_logging(estmt):
+    summary = estmt.state['result'].summary
+    prefix = summary['prefix']
+    estmt.tensorboard_logging(image=summary['image'], prefix=prefix)
+    estmt.tensorboard_logging(histogram=summary['histogram'], prefix=prefix)
+
+
+def adjust_learning_rate(estmt):
+    estmt.adjust_learning_rate(estmt.history.get('loss/loss_val'))
+
+
+def save_checkpoint(estmt):
+    estmt.save_checkpoint()
+
+
+class EstimatorEventMixin:
+
+    def add_event_handler(self, event_name, handler, *args, **kwargs):
+        """ Add an event handler to be executed when the specified event is triggered
+        Args:
+            event_name (Events): event the handler attach to
+            handler (Callable): the callable function that should be invoked
+            *args: optional args to be passed to `handler`
+            **kwargs: optional keyword args to be passed to `handler`
+        Notes:
+              The handler function's first argument will be `self` (the `Estimator`).
+        Example usage:
+        .. code-block:: python
+            def print_epoch(estimator):
+                print("Epoch: {}".format(estimator.state['epoch']))
+            estimator.add_event_handler(Events.EPOCH_END, print_epoch)
+        """
+        if event_name not in Events:
+            self._log.error(f'attempt to add event handler to an invalid event {event_name}')
+            raise ValueError(f'Event {event_name} is not a valid event')
+
+        self._check_signature(handler, 'handler', *args, **kwargs)
+        self._events[event_name].append((handler, args, kwargs))
+        self._log.debug(f'Handler added for event {event_name}')
+
+    def on(self, event_name, *args, **kwargs):
+        """ Decorator shortcut for add_event_handler
+        Args:
+            event_name (Events): event the handler attach to
+            *args: optional args to be passed to `handler`
+            **kwargs: optional keyword args to be passed to `handler`
+        """
+        def decorator(f):
+            self.add_event_handler(event_name, f, *args, **kwargs)
+            return f
+        return decorator
+
+    def _check_signature(self, fn, fn_description, *args, **kwargs):
+        exception_msg = None
+
+        signature = inspect.signature(fn)
+        try:
+            signature.bind(self, *args, **kwargs)
+        except TypeError as exc:
+            fn_params = list(signature.parameters)
+            exception_msg = str(exc)
+
+        if exception_msg:
+            passed_params = [self] + list(args) + list(kwargs)
+            raise ValueError(f'Error adding {fn} "{fn_description}": '
+                             f'takes parameters {fn_params} but will be called with {passed_params} '
+                             f'({exception_msg})')
+
+    def _trigger(self, event_name, *args):
+        self._log.debug(f'trigger handlers for event {event_name}')
+        for handle in self._events[event_name]:
+            evt_handler, evt_args, evt_kwargs = handle
+            evt_handler(self, *(args + evt_args), **evt_kwargs)
+
+
+class OneEvEstimator(EstimatorEventMixin, OneEstimator):
+
+    def __init__(self, *args, default_handlers=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._events = defaultdict(list)
+        if default_handlers:
+            self.add_default_event_handlers()
+
+    def add_default_event_handlers(self):
+        self.add_event_handler(Events.ITERATION_END, iteration_end_logging)
+        self.add_event_handler(Events.EPOCH_END, epoch_end_logging)
+        self.add_event_handler(Events.EPOCH_END, save_checkpoint)
+        self.add_event_handler(Events.EPOCH_END, adjust_learning_rate)
+
+    def run(self, train_loader, validate_loader, closure_fn, epochs, longtime_pbar=False):
+        epoch_range = tqdm.trange(epochs, desc='Training Procedure') if longtime_pbar else range(epochs)
+
+        for epoch in epoch_range:
+            self.history.clear()
+            self.state['epoch'] = epoch
+            self._trigger(Events.EPOCH_START)
+
+            self.train(train_loader, closure_fn, longtime_pbar)
+            self.evaluate(validate_loader, closure_fn, longtime_pbar)
+
+            self._trigger(Events.EPOCH_END)
+            self._log.debug(f'OneEstimator epoch#{epoch} end')
+
+    def train(self, data_loader, update_fn, longtime_pbar=False):
+        self.model.train()
+        progress = tqdm.tqdm(data_loader, desc=f'Epoch#{self.state["epoch"] + 1}', leave=not longtime_pbar)
+
+        for data in progress:
+            self._trigger(Events.ITERATION_START)
+            result = update_fn(self.model, data)
+
+            self.optimizer.zero_grad()
+            result.loss.backward()
+            self.optimizer.step()
+            progress.set_postfix(self.history.add(result.summary['scalar']))
+            self.state['result'] = result
+
+            self._trigger(Events.ITERATION_END)
+
+    def evaluate(self, data_loader, inference_fn, longtime_pbar=False):
+        self.model.eval()
+        progress = tqdm.tqdm(data_loader, desc='evaluating', leave=not longtime_pbar)
+
+        with torch.no_grad():
+            for data in progress:
+                self._trigger(Events.ITERATION_START)
+
+                result = inference_fn(self.model, data)
+                progress.set_postfix(self.history.add(result.summary['scalar'], log_suffix='_val'))
+                self.state['result'] = result
+
+                self._trigger(Events.ITERATION_END)
 
 
 class OneGANEstimator:

@@ -14,6 +14,7 @@ Features
 - Performance measurement for semantic segmentation and image assessment
 - Extenstions for the storage of intermediate/result images and checkpoints
 - Visualization extension for ``TensorBoard``
+- Event handlers designs ignited by ``ignite``
 
 
 Prerequsite
