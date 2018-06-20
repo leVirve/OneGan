@@ -13,26 +13,17 @@ import torch
 
 import onegan.loss as losses
 from onegan.utils import device, AttrDict
-from onegan.extension import History, TensorBoardLogger, Checkpoint, GANCheckpoint
+from onegan.extension import History, TensorBoardLogger, GANCheckpoint
 
 
 class Events(Enum):
     """ Events for the estimator  """
-    STARTED = "started"
-    END = "END"
-    ITERATION_START = "iteration_start"
-    ITERATION_END = "iteration_end"
-    EPOCH_START = "epoch_start"
-    EPOCH_END = "epoch_end"
-
-
-class ClosureResult:
-
-    def __init__(self, loss=None, status=None, summary=None):
-        self.loss = loss
-        self.status = status
-        self.summary = summary
-
+    STARTED = 'started'
+    END = 'END'
+    ITERATION_START = 'iteration_start'
+    ITERATION_END = 'iteration_end'
+    EPOCH_START = 'epoch_start'
+    EPOCH_END = 'epoch_end'
 
 
 class EstimatorEventMixin:
@@ -97,29 +88,24 @@ class EstimatorEventMixin:
 
 class Estimator:
 
-    def __init__(self, model, optimizer, metric, name, **kwargs):
-        self.model = model
-        self.optim = optimizer
-        self.metric = metric
-        self.name = name
-
-        # TODO: make these extensions optional
-        if self.name:
-            self.saver = Checkpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
-            self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
-
-    def run(self, train_loader, validate_loader, epochs):
-        for epoch in range(epochs):
-            self.model.train()
-            self.train(train_loader, epoch, History())
-            self.model.eval()
-            self.evaluate(validate_loader, epoch, History())
-            self.save_checkpoint(epoch)
-
-    def save_checkpoint(self, epoch):
-        if not hasattr(self, 'saver'):
+    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
+        if not hasattr(self, 'saver') or self.saver is None:
             return
-        self.saver.save(self.model, self.optim, epoch)
+        self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
+
+    def save_checkpoint(self, save_optim=False):
+        if not hasattr(self, 'saver') or self.saver is None:
+            return
+        optim = self.optimizer if save_optim else None
+        self.saver.save(self.model, optim, self.state.epoch + 1)
+
+    def adjust_learning_rate(self, monitor_val):
+        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
+            return
+        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
+            self.lr_scheduler.step(monitor_val)
+        else:
+            self.lr_scheduler.step()
 
 
 '''
@@ -132,10 +118,10 @@ def epoch_end_logging(estmt):
 
 
 def iteration_end_logging(estmt):
-    summary = estmt.state.result.summary
-    prefix = summary['prefix']
-    estmt.tensorboard_logging(image=summary['image'], prefix=prefix)
-    estmt.tensorboard_logging(histogram=summary['histogram'], prefix=prefix)
+    summary = estmt.state.summary
+    prefix, image, histogram = summary.get('prefix'), summary.get('image'), summary.get('histogram')
+    estmt.tensorboard_logging(image=image, prefix=prefix)
+    estmt.tensorboard_logging(histogram=histogram, prefix=prefix)
 
 
 def adjust_learning_rate(estmt):
@@ -146,7 +132,7 @@ def save_checkpoint(estmt):
     estmt.save_checkpoint()
 
 
-class OneEstimator(EstimatorEventMixin):
+class OneEstimator(EstimatorEventMixin, Estimator):
 
     def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, default_handlers=False):
         self.model = model
@@ -202,6 +188,7 @@ class OneEstimator(EstimatorEventMixin):
         '''
         if not hasattr(self, 'logger') or self.logger is None:
             return
+
         self.logger.scalar(scalar, self.state.epoch)
         self._log.debug('tensorboard_epoch_logging logs scalars')
 
@@ -210,24 +197,6 @@ class OneEstimator(EstimatorEventMixin):
             self.logger.histogram(kw_histograms, self.state.epoch)
             self._hist_dict = defaultdict(list)
             self._log.debug('tensorboard_epoch_logging logs histograms')
-
-    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
-        if not hasattr(self, 'saver') or self.saver is None:
-            return
-        self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
-
-    def save_checkpoint(self):
-        if not hasattr(self, 'saver') or self.saver is None:
-            return
-        self.saver.save(self.model, self.optimizer, self.state.epoch + 1)
-
-    def adjust_learning_rate(self, monitor_val):
-        if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
-            return
-        if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
-            self.lr_scheduler.step(monitor_val)
-        else:
-            self.lr_scheduler.step()
 
     def run(self, train_loader, validate_loader, closure_fn, epochs, longtime_pbar=False):
         epoch_range = tqdm.trange(epochs, desc='Training Procedure') if longtime_pbar else range(epochs)
@@ -251,11 +220,20 @@ class OneEstimator(EstimatorEventMixin):
             self._trigger(Events.ITERATION_START)
 
             result = update_fn(self.model, data)
-            self.state.result = result
+            # `loss`, `status` should be in result (dict)
+
+            loss = result.pop('loss')
+            assert loss, 'Returned result from closure must contain key `loss` to backward()'
             self.optimizer.zero_grad()
-            result.loss.backward()
+            loss.backward()
             self.optimizer.step()
-            progress.set_postfix(self.history.add(result.summary['scalar']))
+
+            status = result.pop('status')
+            assert status, 'Returned result from closure must contain key `status` for history'
+            current_status = self.history.add(status)
+
+            progress.set_postfix(current_status)
+            self.state.update(result)
 
             self._trigger(Events.ITERATION_END)
 
@@ -268,8 +246,14 @@ class OneEstimator(EstimatorEventMixin):
                 self._trigger(Events.ITERATION_START)
 
                 result = inference_fn(self.model, data)
-                progress.set_postfix(self.history.add(result.status, log_suffix='_val'))
-                self.state.result = result
+                # `status` should be in result (dict)
+
+                status = result.pop('status')
+                assert status, 'Returned result from closure must contain key `status` for history'
+                current_status = self.history.add(status, log_suffix='_val')
+
+                progress.set_postfix(current_status)
+                self.state.update(result)
 
                 self._trigger(Events.ITERATION_END)
 
@@ -425,7 +409,7 @@ class OneGANReadyEstimator(Estimator):
         self.metric = metric
         self.name = name
 
-        self.saver = GANCheckpoint(name=name, save_epochs=kwargs.get('save_epochs', 5))
+        self.saver = GANCheckpoint(name=name, save_interval=kwargs.get('save_epochs', 5))
         self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
         self.build_criterion()

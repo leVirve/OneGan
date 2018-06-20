@@ -172,15 +172,15 @@ class History(Extension):
 
 class Checkpoint(Extension):
 
-    def __init__(self, savedir='exp/checkpoints/', name='default', save_epochs=20):
-        self.root_savedir = savedir
+    def __init__(self, rootdir='exp/checkpoints/', name='default', save_interval=20):
+        self.rootdir = rootdir
         self.name = name
-        self.save_epochs = save_epochs
+        self.save_interval = save_interval
 
     @property
     def savedir(self):
         if not hasattr(self, '_savedir'):
-            self._savedir = unique_experiment_name(self.root_savedir, self.name)
+            self._savedir = unique_experiment_name(self.rootdir, self.name)
             os.makedirs(self._savedir, exist_ok=True)
         return Path(self._savedir)
 
@@ -244,15 +244,15 @@ class Checkpoint(Extension):
             self.logger.warn('Use fallback solution: load `latest.pt` as module')
             return self.load_trained_model(path, remove_module)
 
-    def save(self, model, optimizer, epoch):
-        """ save method for `model` and `optimizor`
+    def save(self, model, optimizer=None, epoch=None):
+        """ save method for `model` and `optimizer`
 
         Args:
             model (nn.Module)
             optimizer (nn.Module)
             epoch (int): epoch step of training
         """
-        if (epoch + 1) % self.save_epochs:
+        if (epoch + 1) % self.save_interval:
             return
 
         folder = self.get_checkpoint_dir(unique=True)
@@ -309,7 +309,7 @@ class GANCheckpoint(Checkpoint):
             trainer.start_epoch = epoch
 
     def save(self, trainer, epoch):
-        if (epoch + 1) % self.save_epochs:
+        if (epoch + 1) % self.save_interval:
             return
         self._save('dnet-{epoch}.pth', trainer.model_d, trainer.optim_d, epoch)
         self._save('gnet-{epoch}.pth', trainer.model_g, trainer.optim_g, epoch)
