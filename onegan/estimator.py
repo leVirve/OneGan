@@ -118,7 +118,7 @@ def epoch_end_logging(estmt):
 
 
 def iteration_end_logging(estmt):
-    summary = estmt.state.summary
+    summary = estmt.state.get('summary', {})
     prefix, image, histogram = summary.get('prefix'), summary.get('image'), summary.get('histogram')
     estmt.tensorboard_logging(image=image, prefix=prefix)
     estmt.tensorboard_logging(histogram=histogram, prefix=prefix)
