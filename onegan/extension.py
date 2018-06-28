@@ -214,7 +214,7 @@ class Checkpoint(Extension):
 
     def load(self, path=None, model=None, remove_module=False, resume=False):
         """ load method for `model` and `optimizer`
-s
+
         If `resume` is True, full `model` and `optimizer` modules will be returned;
         or the loaded model will be returned.
 

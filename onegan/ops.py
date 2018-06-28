@@ -7,8 +7,6 @@ import torch
 import numpy as np
 import torch.nn.functional as F
 
-from onegan.utils import device
-
 
 class VisionConv2d:
 
@@ -24,14 +22,14 @@ class VisionConv2d:
                 'sobel_horizontal': sobel_horizontal_kernel,
             }[kernel]()
         assert kernel.ndim == 2, 'Plain Vision Kernel should be 2D'
-        self.kernel = torch.from_numpy(kernel[np.newaxis, np.newaxis, :]).to(device())
+        self.kernel = torch.from_numpy(kernel[np.newaxis, np.newaxis, :])
         self.padding = padding
         self.dilation = dilation
         self.name = name
 
     def __call__(self, x: torch.tensor):
         assert x.dim() == 4, 'input tensor should be 4D'
-        return F.conv2d(x, self.kernel, padding=self.padding, dilation=self.dilation)
+        return F.conv2d(x, self.kernel.to(x), padding=self.padding, dilation=self.dilation)
 
 
 class VisionConv3d:
