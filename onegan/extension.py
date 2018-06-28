@@ -324,7 +324,7 @@ class Colorizer(Extension):
 
     @staticmethod
     def normalized_color(colors):
-        colors = np.array(colors)
+        colors = np.array(colors, 'float32')
         if colors.max() > 1:
             colors = colors / 255
         return colors
@@ -333,15 +333,13 @@ class Colorizer(Extension):
         if label.dim() == 4:
             label = label.squeeze(1)
         assert label.dim() == 3
-        batch, h, w = label.size()
-        canvas = torch.zeros(batch, self.num_channel, h, w)
+        n, h, w = label.size()
 
-        for channel in range(self.num_channel):
-            color_channel = canvas[:, channel, ...]
-            for lbl_id in range(self.num_label):
-                color_channel[label == lbl_id] = self.colors[lbl_id][channel]
+        canvas = torch.zeros(n, h, w, self.num_channel)
+        for lbl_id in range(self.num_label):
+            canvas[label == lbl_id] = torch.from_numpy(self.colors[lbl_id])
 
-        return canvas
+        return canvas.permute(0, 3, 1, 2)
 
 
 class TensorCollector(Extension):
