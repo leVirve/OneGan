@@ -282,7 +282,7 @@ class Checkpoint(Extension):
             if path_only:
                 yield path
             payload = self.load(path, model=model, remove_module=remove_module)
-            yield payload, path
+            return payload, path
 
         paths = list(weight_path.glob('*.pt'))
         if weight_path.is_dir():
