@@ -419,7 +419,7 @@ class OneGANReadyEstimator(Estimator):
         self.recon_loss = losses.l1_loss
         self.adv_loss = losses.adversarial_ls_loss
 
-    def foward_d(self, source, output, target):
+    def forward_d(self, source, output, target):
         fake = losses.conditional_input(source, output, self.conditional)
         real = losses.conditional_input(source, target, self.conditional)
         d_fake = self.adv_loss(self.dnet(fake), False)
@@ -428,7 +428,7 @@ class OneGANReadyEstimator(Estimator):
         d_loss = d_terms['d/loss']
         return d_loss, d_terms
 
-    def foward_g(self, source, output, target):
+    def forward_g(self, source, output, target):
         recon = self.recon_loss(output, target)
         adv = self.adv_loss(self.dnet(losses.conditional_input(source, output, self.conditional)), True)
         g_terms = {'g/recon': recon, 'g/adv': adv, 'g/loss': recon * self.recon_weight + adv}
@@ -451,8 +451,8 @@ class OneGANReadyEstimator(Estimator):
             source, target = source.to(device()), target.to(device())
             output = self.gnet(source)
 
-            d_loss, d_terms = self.foward_d(source, output.detach(), target)
-            g_loss, g_terms = self.foward_g(source, output, target)
+            d_loss, d_terms = self.forward_d(source, output.detach(), target)
+            g_loss, g_terms = self.forward_g(source, output, target)
             acc = self.metric(output, target)
 
             self.d_optim.zero_grad()
@@ -480,8 +480,8 @@ class OneGANReadyEstimator(Estimator):
                 source, target = source.to(device()), target.to(device())
                 output = self.gnet(source)
 
-                _, d_terms = self.foward_d(source, output.detach(), target)
-                _, g_terms = self.foward_g(source, output, target)
+                _, d_terms = self.forward_d(source, output.detach(), target)
+                _, g_terms = self.forward_g(source, output, target)
                 acc = self.metric(output, target)
 
                 progress.set_description('Evaluate')
@@ -506,12 +506,12 @@ class OneWGANReadyEstimator(OneGANEstimator):
         self.recon_loss = losses.l1_loss
         self.adv_loss = losses.adversarial_w_loss
 
-    def foward_d(self, source, output, target):
+    def forward_d(self, source, output, target):
         fake = losses.conditional_input(source, output, self.conditional)
         real = losses.conditional_input(source, target, self.conditional)
         d_fake = self.adv_loss(self.dnet(fake), False)
         d_real = self.adv_loss(self.dnet(real), True)
-        d_gp = losses.gradient_panelty(self.dnet, real, fake)
+        d_gp = losses.gradient_penalty(self.dnet, real, fake)
         d_terms = {'d/real': d_real, 'd/fake': d_fake, 'd/gp': d_gp, 'd/loss': d_real + d_fake + self.gp_weight * d_gp}
         d_loss = d_terms['d/loss']
         return d_loss, d_terms
@@ -529,7 +529,7 @@ class OneWGANReadyEstimator(OneGANEstimator):
             for _ in range(self.critic_iters):
                 source, target = fetch_data()
                 output = self.gnet(source).detach()
-                d_loss, d_terms = self.foward_d(source, output, target)
+                d_loss, d_terms = self.forward_d(source, output, target)
 
                 self.d_optim.zero_grad()
                 d_loss.backward()
@@ -537,7 +537,7 @@ class OneWGANReadyEstimator(OneGANEstimator):
 
             source, target = fetch_data()
             output = self.gnet(source)
-            g_loss, g_terms = self.foward_g(source, output, target)
+            g_loss, g_terms = self.forward_g(source, output, target)
 
             self.g_optim.zero_grad()
             g_loss.backward()

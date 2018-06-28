@@ -100,7 +100,7 @@ class TensorBoardLogger(Extension):
         Args:
             kw_tensors: dict of tensors
             epoch: step for TensorBoard logging
-            bins: `bins` for tensorboadX.add_histogram
+            bins: `bins` for tensorboarSdX.add_histogram
         '''
         [self.writer.add_histogram(f'{tag}', tensor, epoch, bins=bins) for tag, tensor in kw_tensors.items()]
 
@@ -213,8 +213,8 @@ class Checkpoint(Extension):
         return full_model
 
     def load(self, path=None, model=None, remove_module=False, resume=False):
-        """ load method for `model` and `optimizor`
-
+        """ load method for `model` and `optimizer`
+s
         If `resume` is True, full `model` and `optimizer` modules will be returned;
         or the loaded model will be returned.
 

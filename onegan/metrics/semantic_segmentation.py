@@ -14,7 +14,7 @@ np.seterr(divide='ignore', invalid='ignore')
 
 
 def confusion_table(preds, labels, num_class: int):
-    ''' Calculate the confision matrix
+    ''' Calculate the confusion matrix
     *credit: refer from [chainer/chainercv] eval_semantic_segmentation.py
 
     Args:
