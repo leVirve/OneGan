@@ -337,7 +337,8 @@ class Colorizer(Extension):
 
         canvas = torch.zeros(n, h, w, self.num_channel)
         for lbl_id in range(self.num_label):
-            canvas[label == lbl_id] = torch.from_numpy(self.colors[lbl_id])
+            if canvas[label == lbl_id].size(0):
+                canvas[label == lbl_id] = torch.from_numpy(self.colors[lbl_id])
 
         return canvas.permute(0, 3, 1, 2)
 
