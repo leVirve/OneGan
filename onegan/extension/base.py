@@ -18,7 +18,7 @@ class Extension:
 
 def unique_experiment_name(root, name):
     import os
-    import datetime
+    from datetime import datetime
 
     target_path = os.path.join(root, name)
     # TODO: fix bug in Tensorboard logger and checkpoint unique name
