@@ -9,20 +9,16 @@ import glob
 import logging
 
 import torch
-from PIL import Image
 from torchvision.datasets.folder import has_file_allowed_extension, IMG_EXTENSIONS
+from . import functional
 
 
 __all__ = [
     'BaseDataset', 'SourceToTargetDataset',
-    'load_image', 'collect_images', 'universal_collate_fn'
+    'collect_images', 'universal_collate_fn'
 ]
 
 default_collate = torch.utils.data.dataloader.default_collate
-
-
-def load_image(path):
-    return Image.open(path)
 
 
 def collect_images(path):
@@ -98,8 +94,8 @@ class SourceToTargetDataset(BaseDataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        source = load_image(self.sources[index]).convert('RGB')
-        target = load_image(self.targets[index]).convert('RGB')
+        source = functional.load_image(self.sources[index]).convert('RGB')
+        target = functional.load_image(self.targets[index]).convert('RGB')
         return self.transform(source), self.transform(target)
 
     def __len__(self):

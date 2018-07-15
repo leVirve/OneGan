@@ -11,8 +11,9 @@ from collections import defaultdict
 import tqdm
 import torch
 
+import onegan
 import onegan.loss as losses
-from onegan.utils import device, AttrDict
+from onegan.option import AttrDict
 from onegan.extension import History, TensorBoardLogger, GANCheckpoint
 
 
@@ -448,7 +449,7 @@ class OneGANReadyEstimator(Estimator):
     def train(self, data_loader, epoch, history, **kwargs):
         progress = tqdm.tqdm(data_loader)
         for i, (source, target) in enumerate(progress):
-            source, target = source.to(device()), target.to(device())
+            source, target = source.to(onegan.device()), target.to(onegan.device())
             output = self.gnet(source)
 
             d_loss, d_terms = self.forward_d(source, output.detach(), target)
@@ -477,7 +478,7 @@ class OneGANReadyEstimator(Estimator):
 
         with torch.no_grad():
             for i, (source, target) in enumerate(progress):
-                source, target = source.to(device()), target.to(device())
+                source, target = source.to(onegan.device()), target.to(onegan.device())
                 output = self.gnet(source)
 
                 _, d_terms = self.forward_d(source, output.detach(), target)
@@ -521,7 +522,7 @@ class OneWGANReadyEstimator(OneGANEstimator):
 
         def fetch_data():
             source, target = next(progress)
-            return source.to(device()), target.to(device())
+            return source.to(onegan.device()), target.to(onegan.device())
 
         # TODO: need go through and modify to work
         for _ in range(len(progress)):

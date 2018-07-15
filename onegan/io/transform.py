@@ -11,20 +11,11 @@ import torchvision.transforms as T
 import torchvision.transforms.functional as F
 from PIL import Image
 
-
-interpolations = {
-    'nearest': Image.NEAREST,
-    'bilinear': Image.BILINEAR,
-    'bicubic': Image.BICUBIC,
-}
-
-
-def image_resize(x, target_size, mode='bilinear'):
-    return T.functional.resize(x, target_size, interpolations[mode])
+from . import functional
 
 
 class SegmentationPair():
-
+    # TODO: deprecated
     def __init__(self,
                  target_size=None,
                  final_transform=False,
@@ -84,10 +75,10 @@ class TransformPipeline:
         return transform_fn(x)
 
     def load_image(self, path):
-        return Image.open(path)
+        return functional.load_image(path)
 
     def resize(self, x, mode='bilinear'):
-        return image_resize(x, self.target_size, mode)
+        return functional.image_resize(x, self.target_size, mode)
 
     def colorjiiter(self, x):
         return self.color_jitter(x)

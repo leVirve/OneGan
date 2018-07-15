@@ -3,6 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-from onegan.io.loader import *  # noqa
-from onegan.io.transform import *  # noqa
-from onegan.io.utils import *  # noqa
+from .loader import *  # noqa
+from .transform import *  # noqa
+from .utils import *  # noqa
+from .functional import *  # noqa

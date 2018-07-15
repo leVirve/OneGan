@@ -7,8 +7,6 @@
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
-from onegan import utils
-
 
 np.seterr(divide='ignore', invalid='ignore')
 
@@ -49,6 +47,12 @@ def intersection_over_union(confusion: np.ndarray):
 
 def max_bipartite_matching_score(predictions: np.ndarray, targets: np.ndarray):
 
+    def to_numpy(x):
+        import torch
+        if torch.is_tensor(x):
+            return x.cpu().numpy()
+        return x
+
     def _one_sample(prediction, target):
         ''' calculate the maximum bipartite matching between two labels
             prediction: 2-D numpy array
@@ -66,8 +70,8 @@ def max_bipartite_matching_score(predictions: np.ndarray, targets: np.ndarray):
         score = -cost[row_ind, col_ind].sum()
         return score / target.size
 
-    predictions = np.squeeze(utils.to_numpy(predictions))
-    targets = np.squeeze(utils.to_numpy(targets))
+    predictions = np.squeeze(to_numpy(predictions))
+    targets = np.squeeze(to_numpy(targets))
 
     if len(predictions.shape) == len(targets.shape) and len(predictions.shape) == 3:
         scores = [_one_sample(p, t) for p, t in zip(predictions, targets)]

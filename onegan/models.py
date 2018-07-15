@@ -3,6 +3,32 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+def init_weights(net, init_method='normal', gain=1):
+
+    def init_module_weight(m):
+        module_name = m.__class__.__name__
+        module_name = module_name.replace('1d', '').replace('2d', '').replace('3d', '')
+
+        if module_name == 'BatchNorm':
+            nn.init.uniform_(m.weight.data, 1.0, 0.02)
+            nn.init.constant_(m.bias.data, 0.0)
+        elif module_name in ('Conv', 'Linear'):
+            init_func(m)
+
+    init_func = {
+        'normal': lambda x: nn.init.uniform_(x.weight.data, 0.0, 0.02),
+        'kaiming': lambda x: nn.init.kaiming_normal_(x.weight.data, a=0, mode='fan_in'),
+        'xavier': lambda x: nn.init.xavier_normal_(x.weight.data, gain=gain),
+        'orthogonal': lambda x: nn.init.orthogonal_(x.weight.data, gain=gain),
+    }.get(init_method)
+
+    if init_func is None:
+        raise NotImplementedError('initialization method [%s] is not implemented' % init_method)
+
+    print('initialization method [%s]' % init_method)
+    net.apply(init_module_weight)
+
+
 class GeneratorUNet(nn.Module):
 
     def __init__(self, input_channel, output_channel, ngf, norm='batch'):
@@ -132,29 +158,3 @@ class Discriminator(nn.Module):
 
     def forward(self, x):
         return self.model(x)
-
-
-def init_weights(net, init_method='normal', gain=1):
-
-    def init_module_weight(m):
-        module_name = m.__class__.__name__
-        module_name = module_name.replace('1d', '').replace('2d', '').replace('3d', '')
-
-        if module_name == 'BatchNorm':
-            nn.init.uniform_(m.weight.data, 1.0, 0.02)
-            nn.init.constant_(m.bias.data, 0.0)
-        elif module_name in ('Conv', 'Linear'):
-            init_func(m)
-
-    init_func = {
-        'normal': lambda x: nn.init.uniform_(x.weight.data, 0.0, 0.02),
-        'kaiming': lambda x: nn.init.kaiming_normal_(x.weight.data, a=0, mode='fan_in'),
-        'xavier': lambda x: nn.init.xavier_normal_(x.weight.data, gain=gain),
-        'orthogonal': lambda x: nn.init.orthogonal_(x.weight.data, gain=gain),
-    }.get(init_method)
-
-    if init_func is None:
-        raise NotImplementedError('initialization method [%s] is not implemented' % init_method)
-
-    print('initialization method [%s]' % init_method)
-    net.apply(init_module_weight)

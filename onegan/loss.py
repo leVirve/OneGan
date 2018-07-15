@@ -8,11 +8,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import grad
 
-from onegan.utils import device
-
-
-def l1_loss(x, y):
-    return nn.functional.l1_loss(x, y)
+import onegan
 
 
 def adversarial_ce_loss(x, value: float):
@@ -39,12 +35,12 @@ def adversarial_w_loss(x, value: bool):
 
 
 def gradient_penalty(dnet, target, pred):
-    w = torch.rand(target.size(0), 1, 1, 1, device=device()).expand_as(target)
-    interp = torch.tensor(w * target + (1 - w) * pred, requires_grad=True, device=device())
+    w = torch.rand(target.size(0), 1, 1, 1, device=onegan.device()).expand_as(target)
+    interp = torch.tensor(w * target + (1 - w) * pred, requires_grad=True, device=onegan.device())
 
     output = dnet(interp)
     grads = grad(outputs=output, inputs=interp,
-                 grad_outputs=torch.ones(output.size(), device=device()),
+                 grad_outputs=torch.ones(output.size(), device=onegan.device()),
                  create_graph=True, retain_graph=True)[0]
 
     return ((grads.view(grads.size(0), -1).norm(dim=1) - 1) ** 2).mean()
