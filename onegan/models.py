@@ -1,6 +1,11 @@
+import logging
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+
+log = logging.getLogger('onegan.model')
 
 
 def init_weights(net, init_method='normal', gain=1):
@@ -25,7 +30,7 @@ def init_weights(net, init_method='normal', gain=1):
     if init_func is None:
         raise NotImplementedError('initialization method [%s] is not implemented' % init_method)
 
-    print('initialization method [%s]' % init_method)
+    log.info('initialization method [%s]' % init_method)
     net.apply(init_module_weight)
 
 

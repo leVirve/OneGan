@@ -151,7 +151,7 @@ class OneEstimator(EstimatorEventMixin, Estimator):
         self.state = AttrDict(epoch=0)
         self._events = defaultdict(list)
         self._hist_dict = defaultdict(list)
-        self._log = logging.getLogger('OneEstimator')
+        self._log = logging.getLogger('onegan.OneEstimator')
 
         if default_handlers:
             self.add_default_event_handlers()
