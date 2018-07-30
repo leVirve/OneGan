@@ -20,6 +20,8 @@ __all__ = [
 
 default_collate = torch.utils.data.dataloader.default_collate
 
+_log = logging.getLogger('onegan.io')
+
 
 def collect_images(path):
     return sorted([
@@ -40,7 +42,7 @@ def universal_collate_fn(batch):
 
 class BaseDataset(torch.utils.data.Dataset):
 
-    def __init__(self, phase, args=None):
+    def __init__(self, phase=None, args=None):
         """ Base dataset with to_loader method
 
         Args:
@@ -49,21 +51,7 @@ class BaseDataset(torch.utils.data.Dataset):
         """
         self.phase = phase
         self.args = args
-
-    @property
-    def logger(self):
-        """ :Logger: logger for specific succeeding class """
-        if not hasattr(self, '_logger'):
-            self._logger = logging.getLogger(type(self).__name__)
-        return self._logger
-
-    def _split_data(self, files, phase, debug=False):
-        if debug:
-            num_split = int(len(files) * 0.1)
-            files = files[:num_split]
-        num_split = int(len(files) * 0.8)
-        files = files[:num_split] if phase == 'train' else files[num_split:]
-        return files
+        _log.debug(f'BaseDataset <Initialized: phase={phase}>')
 
     def to_loader(self, **kwargs):
         """ Dispatch method for torch.utils.data.DataLoader
@@ -75,7 +63,7 @@ class BaseDataset(torch.utils.data.Dataset):
         # default settings
         params = {
             'pin_memory': True,
-            'shuffle': self.phase == 'train',
+            'shuffle': self.phase == 'train' if self.phase else False,
             'batch_size': self.args.batch_size if self.args else 0,
             'num_workers': self.args.worker if self.args else 0,
         }

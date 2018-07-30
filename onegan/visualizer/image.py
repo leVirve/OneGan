@@ -88,8 +88,9 @@ def label_as_rgb_visual(x, colors):
     palette = torch.tensor(colors).to(x.device)
     canvas = torch.zeros(n, h, w, 3).to(x.device)
 
-    for i, lbl_id in enumerate(torch.unique(x.cpu())):
-        lbl_id = lbl_id.to(x)
+    # for i, lbl_id in enumerate(torch.unique(x.cpu())):
+    for i, lbl_id in enumerate(range(x.max() + 1)):
+        lbl_id = torch.tensor(lbl_id).to(x)
         if canvas[x == lbl_id].size(0):
             canvas[x == lbl_id] = palette[i]
 
