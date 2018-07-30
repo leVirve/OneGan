@@ -12,8 +12,7 @@ from .base import Extension
 
 
 class TensorCollector(Extension):
-    """ Collect batched tensors
-    """
+    """ Collect batched tensors """
 
     def __init__(self):
         self.collection = defaultdict(list)
@@ -31,7 +30,7 @@ class TensorCollector(Extension):
         self.collection[name].append(x)
 
     def save_mat(self, name: str, data: dict = None):
-        """ Save the concatenated tensors into *.mat file
+        """ Save the concatenated tensors into `mat` file
 
         Args:
             name: (str) saved output name

@@ -28,9 +28,11 @@ default_device_name = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def device():
+    """ return the current default global device """
     return torch.device(default_device_name)
 
 
 def set_device(device):
+    """ set the current default global device """
     global default_device_name
     default_device_name = device

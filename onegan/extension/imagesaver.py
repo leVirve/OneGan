@@ -14,7 +14,8 @@ from .base import Extension, unique_experiment_name
 
 class ImageSaver(Extension):
     """ Smarter batched image saver
-    Args:
+
+    Attributes:
         savedir: where's the root for saving images
         name: the subfolder name for the experiment
     """

@@ -31,7 +31,8 @@ def check_num_images(f):
 
 class TensorBoardLogger(Extension):
     ''' Smarter TensorBoard logger wrapping tensorboardX
-    Args:
+
+    Attributes:
         logdir: where's the root for tensorboard logging events
         name: the subfolder for the experiment
         max_num_images: the number of images to log on the image tab of TensorBoard
