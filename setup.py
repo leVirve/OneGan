@@ -14,15 +14,19 @@ def version():
 
 
 def pip_requirements():
-    with open('requirements.txt') as f:
-        return [line.strip() for line in f]
+    return [
+        'torchvision',
+        'tensorboardX',
+        'tqdm',
+        'pyaml',
+    ]
 
 
 setup(
     name='onegan',
     version=version(),
     url='http://github.com/leVirve/OneGAN',
-    description='One GAN framewrok for fast development setups.',
+    description='One GAN framework for fast development setups.',
     author='Salas Lin (leVirve)',
     author_email='gae.m.project@gmail.com',
     license='MIT',

@@ -1,4 +1,0 @@
-torchvision
-tensorboardX
-tqdm
-pyaml
