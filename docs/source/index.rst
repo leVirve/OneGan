@@ -5,8 +5,10 @@ Welcome to onegan's documentation!
    :maxdepth: 2
    :caption: Contents:
 
-   onegan.rst
+   onegan
+   estimator
    extension
+   visualizer
 
 
 Indices and tables

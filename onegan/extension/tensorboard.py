@@ -13,12 +13,12 @@ class TensorBoardLogger(Extension):
     r""" Convenient TensorBoard wrapping on tensorboardX
 
     Args:
-        logdir (str): the root folder for tensorboard logging events (default: ``exp/logs``)
-        name (str): subfolder name for current event writer (default: ``default``)
-        max_num_images (int): number of images to log on the image panel (default: 20)
+        logdir (str): the root folder for tensorboard logging events (default: ``exp/logs``).
+        name (str): subfolder name for current event writer (default: ``default``).
+        max_num_images (int): number of images to log on the image panel (default: 20).
 
     Attributes:
-        writer (:class:`tensorboardX.SummaryWriter`): internal wrapped writer
+        writer (:class:`tensorboardX.SummaryWriter`): internal wrapped writer.
         _tag_base_counter (int): internal image counter for :py:meth:`image` logging.
         _phase_state (str): internal state from the argument ``prefix`` of :py:meth:`image`.
     """

@@ -26,8 +26,15 @@ def export_checkpoint_weight(checkpoint_path, remove_module=True):
 
 
 class Checkpoint(Extension):
+    r""" Checkpoint manager for model saving and restoring.
 
-    def __init__(self, rootdir='exp/checkpoints/', name='default', save_interval=20):
+    Args:
+        rootdir (str): the root folder for checkpoint manager (default: ``exp/checkpoints``).
+        name (str): subfolder name for current experiment (default: ``default``).
+        save_interval (int): interval of epochs to save the checkpoint (default: 10)
+    """
+
+    def __init__(self, rootdir='exp/checkpoints/', name='default', save_interval=10):
         self.rootdir = rootdir
         self.name = name
         self.save_interval = save_interval
@@ -155,6 +162,7 @@ class Checkpoint(Extension):
             yield payload, path
 
 
+# deprecated
 class GANCheckpoint(Checkpoint):
 
     def load(self, trainer, gnet_path=None, dnet_path=None, resume=False):

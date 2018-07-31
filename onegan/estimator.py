@@ -20,7 +20,7 @@ from onegan.extension import History, TensorBoardLogger, GANCheckpoint
 class Events(Enum):
     """ Events for the estimator  """
     STARTED = 'started'
-    END = 'END'
+    END = 'end'
     ITERATION_START = 'iteration_start'
     ITERATION_END = 'iteration_end'
     EPOCH_START = 'epoch_start'
@@ -28,21 +28,28 @@ class Events(Enum):
 
 
 class EstimatorEventMixin:
+    """ Mixin for the event-triggered estimator.
+
+    Maim implementation comes from `https://github.com/pytorch/ignite/blob/master/ignite/engine/engine.py`
+    """
 
     def add_event_handler(self, event_name, handler, *args, **kwargs):
-        """ Add an event handler to be executed when the specified event is triggered
+        """ Add an event handler to be executed when the specified event is triggered.
+
         Args:
             event_name (Events): event the handler attach to
             handler (Callable): the callable function that should be invoked
             *args: optional args to be passed to `handler`
             **kwargs: optional keyword args to be passed to `handler`
+
         Notes:
-              The handler function's first argument will be `self` (the `Estimator`).
-        Example usage:
-        .. code-block:: python
-            def print_epoch(estimator):
-                print("Epoch: {}".format(estimator.state.epoch))
-            estimator.add_event_handler(Events.EPOCH_END, print_epoch)
+            The handler function's first argument will be `self` (the `Estimator`).
+
+        Examples:
+
+            >>> def print_epoch(estimator):
+            >>>    print("Epoch: {}".format(estimator.state.epoch))
+            >>> estimator.add_event_handler(Events.EPOCH_END, print_epoch)
         """
         if event_name not in Events:
             self._log.error(f'attempt to add event handler to an invalid event {event_name}')
@@ -53,7 +60,8 @@ class EstimatorEventMixin:
         self._log.debug(f'Handler added for event {event_name}')
 
     def on(self, event_name, *args, **kwargs):
-        """ Decorator shortcut for add_event_handler
+        """ Decorator shortcut for add_event_handler.
+
         Args:
             event_name (Events): event the handler attach to
             *args: optional args to be passed to `handler`
@@ -88,19 +96,23 @@ class EstimatorEventMixin:
 
 
 class Estimator:
+    """ Base estimator for functional support. """
 
-    def load_checkpoint(self, weight_path, remove_module=False, resume=False):
+    def load_checkpoint(self, weight_path, remove_module=False, resume=False) -> None:
+        """ load checkpoint if internal ``saver`` is not `None`. """
         if not hasattr(self, 'saver') or self.saver is None:
             return
         self.saver.load(weight_path, self.model, remove_module=remove_module, resume=resume)
 
-    def save_checkpoint(self, save_optim=False):
+    def save_checkpoint(self, save_optim=False) -> None:
+        """ save checkpoint if internal ``saver`` is not `None`. """
         if not hasattr(self, 'saver') or self.saver is None:
             return
         optim = self.optimizer if save_optim else None
         self.saver.save(self.model, optim, self.state.epoch + 1)
 
-    def adjust_learning_rate(self, monitor_val):
+    def adjust_learning_rate(self, monitor_val) -> None:
+        """ adjust the learning rate if internal ``lr_scheduler`` is not `None`. """
         if not hasattr(self, 'lr_scheduler') or self.lr_scheduler is None:
             return
         if isinstance(self.lr_scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau):
@@ -115,7 +127,7 @@ Event-trigger estimator
 
 
 def epoch_end_logging(estmt):
-    estmt.tensorboard_epoch_logging(scalar=estmt.history.metric())
+    estmt.tensorboard_epoch_logging(scalar=estmt.history.metric)
 
 
 def iteration_end_logging(estmt):
@@ -134,6 +146,20 @@ def save_checkpoint(estmt):
 
 
 class OneEstimator(EstimatorEventMixin, Estimator):
+    r""" Estimator for network training and evaluation.
+
+    Args:
+        model (torch.nn.Module): defined model for estimator.
+        optimizer (torch.optim, optional): optimizer for model training.
+        lr_scheduler (torch.optim.lr_scheduler, optional): learning rate scheduler for
+            model training.
+        logger (extension.TensorBoardLogger, optional): training state logger (default: None).
+        saver (extension.Checkpoint, optional): checkpoint persistence (default: None).
+        default_handlers (bool): turn on/off the defalt handlers (default: False).
+
+    Attributes:
+        history (extension.History): internal statistics of training state.
+    """
 
     def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, default_handlers=False):
         self.model = model
@@ -164,7 +190,8 @@ class OneEstimator(EstimatorEventMixin, Estimator):
         self.add_event_handler(Events.EPOCH_END, adjust_learning_rate)
 
     def tensorboard_logging(self, image=None, histogram=None, prefix=None):
-        ''' wrapper in estimator for Tensorboard logger
+        ''' wrapper in estimator for Tensorboard logger.
+
         Args:
             image: dict() of a list of images
             histogram: dict() of tensors for accumulated histogram
@@ -183,7 +210,8 @@ class OneEstimator(EstimatorEventMixin, Estimator):
             self._log.debug('tensorboard_logging accumulate histograms')
 
     def tensorboard_epoch_logging(self, scalar=None):
-        ''' wrapper in estimator for Tensorboard logger
+        ''' wrapper in estimator for Tensorboard logger.
+
         Args:
             scalar: dict() of a list of scalars
         '''
@@ -231,7 +259,7 @@ class OneEstimator(EstimatorEventMixin, Estimator):
 
             status = result.pop('status')
             assert status, 'Returned result from closure must contain key `status` for history'
-            current_status = self.history.add(status)
+            current_status = self.history.update(status)
 
             progress.set_postfix(current_status)
             self.state.update(result)
@@ -251,7 +279,7 @@ class OneEstimator(EstimatorEventMixin, Estimator):
 
                 status = result.pop('status')
                 assert status, 'Returned result from closure must contain key `status` for history'
-                current_status = self.history.add(status, log_suffix='_val')
+                current_status = self.history.update(status, log_suffix='_val')
 
                 progress.set_postfix(current_status)
                 self.state.update(result)
@@ -259,6 +287,7 @@ class OneEstimator(EstimatorEventMixin, Estimator):
                 self._trigger(Events.ITERATION_END)
 
 
+# deprecated
 class OneGANEstimator:
 
     def __init__(self, model, optimizer=None, lr_scheduler=None, logger=None, saver=None, name=None):
@@ -282,10 +311,10 @@ class OneGANEstimator:
             self.state.epoch = epoch
 
             self.train(train_loader, update_fn)
-            self.logger.scalar(self.history.metric(), epoch)
+            self.logger.scalar(self.history.metric, epoch)
 
             self.evaluate(validate_loader, inference_fn)
-            self.logger.scalar(self.history.metric(), epoch)
+            self.logger.scalar(self.history.metric, epoch)
 
             self.save_checkpoint()
             self.adjust_learning_rate(('loss/loss_g_val', 'loss/loss_d_val'))
@@ -402,6 +431,7 @@ class OneGANEstimator:
                 progress.set_postfix(self.history_val.add(stat, log_suffix='_val'))
 
 
+# deprecated
 class OneGANReadyEstimator(Estimator):
 
     def __init__(self, model, optimizer, metric, name, **kwargs):
@@ -495,6 +525,7 @@ class OneGANReadyEstimator(Estimator):
         self.logger.scalar(history.metric(), epoch)
 
 
+# deprecated
 class OneWGANReadyEstimator(OneGANEstimator):
 
     def __init__(self, model, optimizer, metric, saver, name):

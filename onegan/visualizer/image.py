@@ -6,18 +6,22 @@
 import torch
 
 
+__all__ = ('img_normalize', 'stack_visuals', 'as_rgb_visual',
+           'label_as_rgb_visual')
+
+
 DEFAULT_COLORS = [[.2, .8, .4], [.6, .4, .8], [.8, .4, .2]]
 
 
 def img_normalize(img, val_range=None):
-    ''' Normalize the tensor into (0, 1)
+    """ Normalize the tensor into (0, 1).
 
     Args:
-        tensor: torch.Tensor
-        val_range: tuple of (min_val, max_val)
+        tensor (torch.Tensor): input tensor.
+        val_range (tuple): range in the form (min_val, max_val).
     Returns:
-        img: normalized tensor
-    '''
+        torch.Tensor: normalized tensor
+    """
     t = img.clone()
     if val_range:
         mm, mx = val_range[0], val_range[1]
@@ -30,10 +34,11 @@ def img_normalize(img, val_range=None):
 
 
 def stack_visuals(*args):
-    ''' Merge results in one image (R, G, B) naively
+    """ Merge results in one image (R, G, B) naively.
+
     Args:
         args: each should shape in (N, H, W) or (N, C, H, W)
-    '''
+    """
     def make_valid_batched_dim(x):
         return x.unsqueeze(1) if x.dim() == 3 else x
 
@@ -48,12 +53,13 @@ def stack_visuals(*args):
     return torch.cat(channels, dim=1)
 
 
-def as_rgb_visual(tensor, vallina=False, colors=None):
-    ''' Make tensor into colorful image
+def as_rgb_visual(x, vallina=False, colors=None):
+    """ Make tensor into colorful image.
+
     Args:
-        tensor: shape in (C, H, W) or (N, C, H, W)
-        vallina: (bool) if True, then use the `stack_visuals`
-    '''
+        x (torch.Tensor): shape in (C, H, W) or (N, C, H, W).
+        vallina (bool) : if True, then use the `stack_visuals`.
+    """
 
     def batched_colorize(batched_x):
         n, c, h, w = batched_x.size()
@@ -70,17 +76,18 @@ def as_rgb_visual(tensor, vallina=False, colors=None):
                 canvas += channels[i].unsqueeze(-1) * palette[i]
             return canvas.permute(0, 3, 1, 2)
 
-    if tensor.dim() == 3:
-        return batched_colorize(tensor.unsqueeze(0)).squeeze(-1)
+    if x.dim() == 3:
+        return batched_colorize(x.unsqueeze(0)).squeeze(-1)
 
-    return batched_colorize(tensor)
+    return batched_colorize(x)
 
 
 def label_as_rgb_visual(x, colors):
-    ''' Make segment tensor into colorful image
+    """ Make segment tensor into colorful image
+
     Args:
-        tensor: shape in (N, H, W) or (N, 1, H, W)
-    '''
+        x (torch.Tensor): shape in (N, H, W) or (N, 1, H, W)
+    """
     if x.dim() == 4:
         x = x.squeeze(1)
 
@@ -88,9 +95,9 @@ def label_as_rgb_visual(x, colors):
     palette = torch.tensor(colors).to(x.device)
     canvas = torch.zeros(n, h, w, 3).to(x.device)
 
-    # for i, lbl_id in enumerate(torch.unique(x.cpu())):
-    for i, lbl_id in enumerate(range(x.max() + 1)):
-        lbl_id = torch.tensor(lbl_id).to(x)
+    # for i, lbl_id in enumerate(range(x.max() + 1)):
+    #     lbl_id = torch.tensor(lbl_id).to(x)
+    for i, lbl_id in enumerate(torch.arange(x.max() + 1).to(x)):
         if canvas[x == lbl_id].size(0):
             canvas[x == lbl_id] = palette[i]
 
