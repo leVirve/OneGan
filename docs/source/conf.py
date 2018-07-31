@@ -42,6 +42,7 @@ extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
+    'sphinx.ext.intersphinx',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -100,6 +101,18 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
+# -- Mock imports ------------------------------------------------------------
+autodoc_mock_imports = [
+    'torchvision',
+    'tensorboardX',
+    'tqdm',
+    'pyaml',
+    'numpy',
+    'scipy',
+    'torch',
+    'cv2',
+    'PIL',
+]
 
 # -- Options for HTMLHelp output ---------------------------------------------
 
@@ -159,14 +172,10 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
-autodoc_mock_imports = [
-    'torchvision',
-    'tensorboardX',
-    'tqdm',
-    'pyaml',
-    'numpy',
-    'scipy',
-    'torch',
-    'cv2',
-    'PIL',
-]
+
+intersphinx_mapping = {
+    'python': ('https://docs.python.org/3', None),
+    'numpy': ('http://docs.scipy.org/doc/numpy/', None),
+    'torch': ('http://pytorch.org/docs/master', None),
+    'tensorboardX': ('https://tensorboardx.readthedocs.io/en/latest', None),
+}

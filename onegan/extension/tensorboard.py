@@ -29,12 +29,12 @@ def check_num_images(f):
     return wrapper
 
 
-class TensorBoard(Extension):
-    r""" Convenient TensorBoard wrapping tensorboardX
+class TensorBoardLogger(Extension):
+    r""" Convenient TensorBoard wrapping on tensorboardX
 
     Args:
-        logdir (str): the root folder for tensorboard logging events (default: 'exp/logs')
-        name (str): subfolder name for current event writer (default: `default`)
+        logdir (str): the root folder for tensorboard logging events (default: ``exp/logs``)
+        name (str): subfolder name for current event writer (default: ``default``)
         max_num_images (int): number of images to log on the image panel (default: 20)
     """
 
@@ -84,7 +84,7 @@ class TensorBoard(Extension):
         Args:
             tensors_dict: :class:`dict` of tensors
             epoch: step for TensorBoard logging
-            bins: `bins` for tensorboarSdX.add_histogram
+            bins: `bins` for :py:meth:`tensorboardX.SummaryWriter.add_histogram`
         """
         [self.writer.add_histogram(f'{tag}', tensor, epoch, bins=bins) for tag, tensor in tensors_dict.items()]
 
