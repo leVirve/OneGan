@@ -11,5 +11,5 @@ from .colorize import *  # noqa
 from .tensorcollect import *  # noqa
 
 
-__all__ = ('Checkpoint', 'TensorBoardLogger', 'TensorCollector',
+__all__ = ('Checkpoint', 'TensorBoard', 'TensorCollector',
            'ImageSaver', 'Colorizer', 'History')

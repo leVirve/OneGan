@@ -14,7 +14,7 @@ import torch
 import onegan
 import onegan.loss as losses
 from onegan.option import AttrDict
-from onegan.extension import History, TensorBoardLogger, GANCheckpoint
+from onegan.extension import History, TensorBoard, GANCheckpoint
 
 
 class Events(Enum):
@@ -411,7 +411,7 @@ class OneGANReadyEstimator(Estimator):
         self.name = name
 
         self.saver = GANCheckpoint(name=name, save_interval=kwargs.get('save_epochs', 5))
-        self.logger = TensorBoardLogger(name=name, max_num_images=kwargs.get('max_num_images', 30))
+        self.logger = TensorBoard(name=name, max_num_images=kwargs.get('max_num_images', 30))
 
         self.build_criterion()
 

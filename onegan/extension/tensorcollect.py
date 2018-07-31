@@ -12,7 +12,11 @@ from .base import Extension
 
 
 class TensorCollector(Extension):
-    """ Collect batched tensors """
+    """ Collect batched tensors
+
+    Attributes:
+        collection: :class:`dict` of collected tensors
+    """
 
     def __init__(self):
         self.collection = defaultdict(list)

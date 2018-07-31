@@ -15,9 +15,9 @@ from .base import Extension, unique_experiment_name
 class ImageSaver(Extension):
     """ Smarter batched image saver
 
-    Attributes:
-        savedir: where's the root for saving images
-        name: the subfolder name for the experiment
+    Args:
+        savedir (str): root folder for image saving (default: `exp/results/`)
+        name (str): subfolder name for current experiment (default: `default`)
     """
 
     def __init__(self, savedir='exp/results/', name='default'):
