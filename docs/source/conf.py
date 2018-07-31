@@ -14,7 +14,7 @@
 #
 import os
 import sys
-sys.path.insert(0, os.path.abspath('..'))
+sys.path.insert(0, os.path.abspath('../..'))
 
 
 # -- Project information -----------------------------------------------------
@@ -159,3 +159,14 @@ texinfo_documents = [
 
 
 # -- Extension configuration -------------------------------------------------
+autodoc_mock_imports = [
+    'torchvision',
+    'tensorboardX',
+    'tqdm',
+    'pyaml',
+    'numpy',
+    'scipy',
+    'torch',
+    'cv2',
+    'PIL',
+]
