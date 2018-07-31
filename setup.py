@@ -18,7 +18,7 @@ def pip_requirements():
         'torchvision',
         'tensorboardX',
         'tqdm',
-        'pyaml',
+        'pyyaml',
     ]
 
 

@@ -43,6 +43,7 @@ extensions = [
     'sphinx.ext.viewcode',
     'sphinx.ext.napoleon',
     'sphinx.ext.intersphinx',
+    'sphinx.ext.mathjax',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
@@ -106,7 +107,7 @@ autodoc_mock_imports = [
     'torchvision',
     'tensorboardX',
     'tqdm',
-    'pyaml',
+    'pyyaml',
     'numpy',
     'scipy',
     'torch',
