@@ -8,17 +8,15 @@ import os
 import glob
 import logging
 
-import torch
+from torch.utils import data
 from torchvision.datasets.folder import has_file_allowed_extension, IMG_EXTENSIONS
-from . import functional
 
 
 __all__ = [
-    'BaseDataset', 'SourceToTargetDataset',
-    'collect_images', 'universal_collate_fn'
+    'BaseDataset', 'collect_images', 'universal_collate_fn'
 ]
 
-default_collate = torch.utils.data.dataloader.default_collate
+default_collate = data.dataloader.default_collate
 
 _log = logging.getLogger('onegan.io')
 
@@ -40,7 +38,7 @@ def universal_collate_fn(batch):
     return {key: _collate([d[key] for d in batch]) for key in batch[0]}
 
 
-class BaseDataset(torch.utils.data.Dataset):
+class BaseDataset(data.Dataset):
 
     def __init__(self, phase=None, args=None):
         """ Base dataset with to_loader method
@@ -69,22 +67,4 @@ class BaseDataset(torch.utils.data.Dataset):
         }
         params.update(kwargs)
 
-        return torch.utils.data.DataLoader(self, **params)
-
-
-class SourceToTargetDataset(BaseDataset):
-
-    def __init__(self, phase, source_folder, target_folder, transform=None, debug=False):
-        super().__init__(phase)
-        self.sources = self._split_data(collect_images(source_folder), phase, debug=debug)
-        self.targets = self._split_data(collect_images(target_folder), phase, debug=debug)
-        assert len(self.sources) == len(self.targets)
-        self.transform = transform
-
-    def __getitem__(self, index):
-        source = functional.load_image(self.sources[index]).convert('RGB')
-        target = functional.load_image(self.targets[index]).convert('RGB')
-        return self.transform(source), self.transform(target)
-
-    def __len__(self):
-        return len(self.sources)
+        return data.DataLoader(self, **params)

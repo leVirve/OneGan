@@ -8,10 +8,13 @@ import os
 
 import torch
 
-from onegan.utils import (
-    device, set_device, img_normalize,
-    unique_experiment_name, timeit
-)
+import onegan
+from onegan.visualizer import img_normalize
+from onegan.extension import unique_experiment_name
+# from onegan.utils import (
+#     device, set_device, img_normalize,
+#     unique_experiment_name
+# )
 
 
 def test_img_normalize():
@@ -32,37 +35,31 @@ def test_img_normalize():
 
 def test_device():
     # default device
-    assert device().type == ('cuda' if torch.cuda.is_available() else 'cpu')
+    assert onegan.device().type == ('cuda' if torch.cuda.is_available() else 'cpu')
 
     # change to cpu
-    set_device('cpu')
-    assert device().type == 'cpu'
+    onegan.set_device('cpu')
+    assert onegan.device().type == 'cpu'
 
     if torch.cuda.is_available():
         # change back to gpu
-        set_device('cuda')
-        assert device().type == 'cuda'
+        onegan.set_device('cuda')
+        assert onegan.device().type == 'cuda'
 
         # change back to gpu:0
-        set_device('cuda:0')
-        assert device().type == 'cuda' and device().index == 0
+        onegan.set_device('cuda:0')
+        assert onegan.device().type == 'cuda' and onegan.device().index == 0
 
 
 def test_unique_experiment_name_same_name_experiments():
-    uname_1 = unique_experiment_name('.', 'one87')
-    os.makedirs(uname_1, exist_ok=True)
-    uname_2 = unique_experiment_name('.', 'one87')
-    os.removedirs(uname_1)
-    assert uname_1 != uname_2
+    name_1 = unique_experiment_name('.', 'one87')
+    os.makedirs(name_1, exist_ok=True)
+    name_2 = unique_experiment_name('.', 'one87')
+    os.removedirs(name_1)
+    assert name_1 != name_2
 
 
 def test_unique_experiment_name_different_experiments():
-    uname_1 = unique_experiment_name('.', 'one87')
-    uname_2 = unique_experiment_name('.', 'another87')
-    assert uname_1 != uname_2
-
-
-def test_timeit():
-    @timeit
-    def dummy_foo(arg='87'):
-        print(arg)
+    name_1 = unique_experiment_name('.', 'one87')
+    name_2 = unique_experiment_name('.', 'another87')
+    assert name_1 != name_2

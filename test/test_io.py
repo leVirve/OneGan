@@ -1,20 +1,12 @@
-import onegan
-from onegan.io.loader import load_image
+import torch
+
+from onegan import io
 
 
-def dummy_collect_images():
-    return [None] * 100
+class DummyDataset(io.BaseDataset):
 
-
-class DummyDataset(onegan.io.BaseDataset):
-
-    def __init__(self, phase, debug=False, **kwargs):
+    def __init__(self, phase, **kwargs):
         super().__init__(phase)
-        self.phase = phase
-        self.filenames = self._split_data(dummy_collect_images(), phase, debug=debug)
-
-    def __getitem__(self, index):
-        return load_image(self.filenames[index]).convert('RGB')
 
     def __len__(self):
         return len(self.filenames)
@@ -22,14 +14,28 @@ class DummyDataset(onegan.io.BaseDataset):
 
 def test_base_loader():
     dataset_params = {'root': None}
-    loader_params = dict(batch_size=32, num_workers=4, pin_memory=True)
-    train_loader = DummyDataset(phase='train', **dataset_params).to_loader(**loader_params)
-    val_loader = DummyDataset(phase='val', **dataset_params).to_loader(**loader_params)
-    assert len(train_loader) != len(val_loader)
+    loader_params = dict(batch_size=4, num_workers=1, pin_memory=True)
+
+    dataset = DummyDataset(phase='train', **dataset_params)
+    dataloader = dataset.to_loader(**loader_params)
+
+    assert isinstance(dataset, torch.utils.data.Dataset)
+    assert isinstance(dataloader, torch.utils.data.DataLoader)
 
 
-def test_source_to_target_loader():
-    dataset_params = {'source_folder': '.', 'target_folder': '.'}
-    loader_params = dict(batch_size=32, num_workers=4, pin_memory=True)
-    onegan.io.SourceToTargetDataset(phase='train', **dataset_params).to_loader(**loader_params)
-    onegan.io.SourceToTargetDataset(phase='val', **dataset_params).to_loader(**loader_params)
+def test_load_image():
+    image = io.load_image('test/test_data/scene.jpg')
+    assert image
+
+
+def test_image_resize():
+    image = io.load_image('test/test_data/scene.jpg')
+
+    height, width = 100, 200
+    small_image = io.image_resize(image, (height, width))
+    assert small_image.size == (width, height)
+
+
+def test_transform_pipeline():
+    tf = io.TransformPipeline()
+    assert tf

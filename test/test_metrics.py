@@ -6,7 +6,7 @@
 import torch
 
 import onegan
-from onegan.utils import img_normalize
+from onegan.visualizer import img_normalize
 
 
 def test_psnr():

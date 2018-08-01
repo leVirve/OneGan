@@ -1,7 +1,7 @@
 import onegan.option as option
 
 
-def test_paser():
+def test_parser():
     empty_parser = option.Parser(description='cGAN')
     dummy_args = []
     args = empty_parser.parse(dummy_args)
