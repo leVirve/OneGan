@@ -5,7 +5,6 @@
 
 import tensorboardX
 
-from onegan.visualizer import image as oneimage
 from .base import Extension, unique_experiment_name
 
 
@@ -80,7 +79,8 @@ class TensorBoardLogger(Extension):
         num_summaried_img = len(next(iter(images_dict.values())))
         self._tag_base_counter += num_summaried_img
 
-        [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}', oneimage.img_normalize(image), epoch)
+        [self.writer.add_image(f'{prefix}{tag}/{self._tag_base_counter + i}',
+                               image, epoch)
          for tag, images in images_dict.items()
          for i, image in enumerate(images)]
 

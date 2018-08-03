@@ -87,18 +87,38 @@ def label_as_rgb_visual(x, colors):
 
     Args:
         x (torch.Tensor): shape in (N, H, W) or (N, 1, H, W)
+        colors (tuple or list): list of RGB colors, range from 0 to 1.
+
+    Returns:
+        canvas (torch.Tensor): colorized tensor in the shape of (N, C, H, W)
     """
     if x.dim() == 4:
         x = x.squeeze(1)
+    assert x.dim() == 3
 
     n, h, w = x.size()
     palette = torch.tensor(colors).to(x.device)
-    canvas = torch.zeros(n, h, w, 3).to(x.device)
+    labels = torch.arange(x.max() + 1).to(x)
 
-    # for i, lbl_id in enumerate(range(x.max() + 1)):
-    #     lbl_id = torch.tensor(lbl_id).to(x)
-    for i, lbl_id in enumerate(torch.arange(x.max() + 1).to(x)):
+    canvas = torch.zeros(n, h, w, 3).to(x.device)
+    for color, lbl_id in zip(palette, labels):
         if canvas[x == lbl_id].size(0):
-            canvas[x == lbl_id] = palette[i]
+            canvas[x == lbl_id] = color
 
     return canvas.permute(0, 3, 1, 2)
+
+
+def make_bar(images):
+    """ Make a list of iamges turn to a long thumbnail.
+    """
+    img = images[0]
+
+    n, c, h, w = img.size()
+    pad = torch.ones(n, c, h, 5)
+
+    outs = []
+    for im in images:
+        outs.append(im)
+        outs.append(pad)
+
+    return torch.cat(outs[:-1], dim=3)

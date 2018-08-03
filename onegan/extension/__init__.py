@@ -7,9 +7,8 @@ from .checkpoint import *  # noqa
 from .tensorboard import *  # noqa
 from .imagesaver import *  # noqa
 from .history import *  # noqa
-from .colorize import *  # noqa
 from .tensorcollect import *  # noqa
 
 
 __all__ = ('Checkpoint', 'TensorBoardLogger', 'TensorCollector',
-           'ImageSaver', 'Colorizer', 'History')
+           'ImageSaver', 'History')

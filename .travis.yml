@@ -15,7 +15,6 @@ install:
     - conda create -q -n test-environment python=$TRAVIS_PYTHON_VERSION pytorch scipy opencv -c pytorch
     - source activate test-environment
     - pip install --upgrade pytest pytest-cov flake8
-    - pip install -r requirements.txt
 
 before_script:
     - flake8 .
