@@ -16,7 +16,7 @@ import onegan.option  # noqa
 import onegan.external  # noqa
 
 
-__version__ = '0.5.0a'
+__version__ = '0.5.1'
 
 
 # environment
