@@ -3,7 +3,7 @@
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
 
-from setuptools import setup
+from setuptools import setup, find_packages
 
 
 def version():
@@ -31,7 +31,7 @@ setup(
     author_email='gae.m.project@gmail.com',
     license='MIT',
     platforms='any',
-    packages=['onegan', 'onegan.io', 'onegan.metrics', 'onegan.external'],
+    packages=find_packages(),
     zip_safe=False,
     keywords='GAN framework',
     install_requires=[
