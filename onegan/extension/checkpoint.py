@@ -106,6 +106,20 @@ class Checkpoint(Extension):
             self.logger.warn('Use fallback solution: load `latest.pt` as module')
             return self.load_trained_model(path, remove_module)
 
+    def save_named(self, model, optimizer=None, name=None):
+        """Save the named model's weight and optimizer.
+
+        Args:
+            model (nn.Module): the model to be saved.
+            optimizer (nn.Module): default is `None`.
+            name (str): the name for the checkpoint.
+        """
+        folder = self.get_checkpoint_dir(unique=True)
+        torch.save({
+            'weight': model.state_dict(),
+            'optimizer': optimizer,
+        }, folder / f'{name}.pt')
+
     def save(self, model, optimizer=None, epoch=None):
         """ save method for `model` and `optimizer`
 

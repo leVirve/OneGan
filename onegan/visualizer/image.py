@@ -34,7 +34,7 @@ def img_normalize(img, val_range=None):
 
 
 def stack_visuals(*args):
-    """ Merge results in one image (R, G, B) naively.
+    """Merge results in one image (R, G, B) naively.
 
     Args:
         args: each should shape in (N, H, W) or (N, C, H, W)
@@ -54,7 +54,7 @@ def stack_visuals(*args):
 
 
 def as_rgb_visual(x, vallina=False, colors=None):
-    """ Make tensor into colorful image.
+    """Make tensor into colorful image.
 
     Args:
         x (torch.Tensor): shape in (C, H, W) or (N, C, H, W).
@@ -83,7 +83,7 @@ def as_rgb_visual(x, vallina=False, colors=None):
 
 
 def label_as_rgb_visual(x, colors):
-    """ Make segment tensor into colorful image
+    """Make segment tensor into colorful image
 
     Args:
         x (torch.Tensor): shape in (N, H, W) or (N, 1, H, W)
@@ -108,9 +108,11 @@ def label_as_rgb_visual(x, colors):
     return canvas.permute(0, 3, 1, 2)
 
 
+# TODO (salas): make it more general to grid
 def make_bar(images):
-    """ Make a list of iamges turn to a long thumbnail.
+    """Make a list of iamges turn to a long thumbnail.
     """
+    import torchvision
     img = images[0]
 
     n, c, h, w = img.size()

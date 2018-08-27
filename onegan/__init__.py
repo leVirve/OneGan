@@ -2,6 +2,7 @@
 #
 # This software is released under the MIT License.
 # https://opensource.org/licenses/MIT
+"""The root of package."""
 
 from onegan import visualizer   # noqa
 from onegan import metrics   # noqa
@@ -16,7 +17,7 @@ import onegan.option  # noqa
 import onegan.external  # noqa
 
 
-__version__ = '0.5.1'
+__version__ = '0.6.0'
 
 
 # environment
@@ -28,11 +29,11 @@ default_device_name = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
 def device():
-    """ return the current default global device """
+    """Return the current default global device."""
     return torch.device(default_device_name)
 
 
 def set_device(device):
-    """ set the current default global device """
+    """Set the current default global device."""
     global default_device_name
     default_device_name = device
