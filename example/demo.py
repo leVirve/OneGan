@@ -18,8 +18,8 @@ class SourceToTargetDataset(loader.BaseDataset):
         self.transform = transform
 
     def __getitem__(self, index):
-        source = functional.load_image(self.sources[index]).convert('RGB')
-        target = functional.load_image(self.targets[index]).convert('RGB')
+        source = functional.pil_open(self.sources[index]).convert('RGB')
+        target = functional.pil_open(self.targets[index]).convert('RGB')
         return self.transform(source), self.transform(target)
 
     def __len__(self):
