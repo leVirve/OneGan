@@ -15,6 +15,7 @@ class TensorBoardLogger(Extension):
         logdir (str): the root folder for tensorboard logging events (default: ``exp/logs``).
         name (str): subfolder name for current event writer (default: ``default``).
         max_num_images (int): number of images to log on the image panel (default: 20).
+        kwargs: extra keyword arguments for :class:`tensorboardX.SummaryWriter`
 
     Attributes:
         writer (:class:`tensorboardX.SummaryWriter`): internal wrapped writer.
@@ -22,8 +23,10 @@ class TensorBoardLogger(Extension):
         _phase_state (str): internal state from the argument ``prefix`` of :py:meth:`image`.
     """
 
-    def __init__(self, logdir='exp/logs', name='default', max_num_images=20):
+    def __init__(self, logdir='exp/logs', name='default',
+                 max_num_images=20, **kwargs):
         self.logdir = unique_experiment_name(logdir, name)
+        self.writer_kwargs = kwargs
         self.max_num_images = max_num_images
 
         # internal usage
@@ -33,7 +36,8 @@ class TensorBoardLogger(Extension):
     @property
     def writer(self):
         if not hasattr(self, '_writer'):
-            self._writer = tensorboardX.SummaryWriter(self.logdir)
+            self._writer = tensorboardX.SummaryWriter(
+                self.logdir, **self.writer_kwargs)
         return self._writer
 
     def clear(self):
@@ -43,14 +47,29 @@ class TensorBoardLogger(Extension):
         self._tag_base_counter = 0
         self._phase_state = 'none'
 
-    def scalar(self, scalar_dict, epoch) -> None:
+    def scalar(self, scalar_dict: dict, epoch: int) -> None:
         """ Log scalar onto scalars panel.
 
         Args:
-            scalar_dict (dict): :class:`dict` of scalars
-            epoch (int): step for TensorBoard logging
+            scalar_dict: :class:`dict` of scalars
+            epoch: step for TensorBoard logging
         """
-        [self.writer.add_scalar(tag, value, epoch) for tag, value in scalar_dict.items()]
+        for tag, value in scalar_dict.items():
+            if value is None:
+                continue
+            self.writer.add_scalar(tag, value, global_step=epoch)
+
+    def figure(self, figure_dict: dict, epoch: int) -> None:
+        """ Log figure onto image panel.
+
+        Args:
+            figure_dict: :class:`dict` of scalars
+            epoch: step for TensorBoard logging
+        """
+        for tag, value in figure_dict.items():
+            if value is None:
+                continue
+            self.writer.add_figure(tag, value, global_step=epoch)
 
     def image(self, images_dict, epoch, prefix='') -> None:
         """ Log image tensors onto images panel.
